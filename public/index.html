@@ -1,0 +1,1776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chips Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 90%;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 16px;
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .button-secondary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .button-start {
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+            animation: pulse 1.5s infinite;
+        }
+
+        .button-start:disabled {
+            background: rgba(255, 255, 255, 0.2);
+            cursor: not-allowed;
+            animation: none;
+        }
+
+        .button-abandon {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .button-reconnect {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+
+        .room-code {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 2em;
+            font-weight: bold;
+            letter-spacing: 5px;
+            margin: 20px 0;
+        }
+
+        .players-list {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+
+        .player-name {
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .owner-crown {
+            font-size: 1.2em;
+        }
+
+        .player-status {
+            font-size: 1.5em;
+        }
+
+        .chips-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .chip {
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 3px solid transparent;
+        }
+
+        .chip:hover {
+            transform: scale(1.05);
+        }
+
+        .chip.selected {
+            border-color: #f5576c;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .chip.eaten {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .chip.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .timer {
+            text-align: center;
+            font-size: 3em;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+
+        .message {
+            text-align: center;
+            font-size: 2em;
+            font-weight: bold;
+            margin: 20px 0;
+            min-height: 60px;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.5); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .message.safe {
+            color: #4ade80;
+            text-shadow: 0 0 10px #4ade80;
+        }
+
+        .message.poisoned {
+            color: #f5576c;
+            text-shadow: 0 0 10px #f5576c;
+        }
+
+        .coin {
+            width: 150px;
+            height: 150px;
+            margin: 30px auto;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            animation: flip 3s ease-out;
+        }
+
+        @keyframes flip {
+            0% { transform: rotateY(0deg) scale(1); }
+            50% { transform: rotateY(1800deg) scale(1.5); }
+            100% { transform: rotateY(3600deg) scale(1); }
+        }
+
+        .health {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .heart {
+            font-size: 2em;
+        }
+
+        .heart.lost {
+            opacity: 0.3;
+        }
+
+        .stats {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .stats-title {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #ffd700;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4ade80;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .user-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .logout-btn {
+            background: rgba(245, 87, 108, 0.3);
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            width: auto;
+            margin: 0;
+        }
+
+        .votes {
+            text-align: center;
+            font-size: 1.2em;
+            margin: 10px 0;
+            color: #ffd700;
+        }
+
+        #gameover-title.win {
+            color: #4ade80;
+            text-shadow: 0 0 20px #4ade80, 0 0 40px #4ade80;
+            font-weight: bold;
+            animation: pulse 1s infinite;
+        }
+
+        #gameover-title.lose {
+            color: #f5576c;
+            text-shadow: 0 0 20px #f5576c, 0 0 40px #f5576c;
+            font-weight: bold;
+            animation: shake 0.5s;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .lang-switch {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .disconnected-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            flex-direction: column;
+        }
+
+        .disconnected-overlay.active {
+            display: flex;
+        }
+
+        .disconnected-box {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .disconnected-icon {
+            font-size: 5em;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+
+        .disconnected-title {
+            font-size: 2em;
+            margin-bottom: 15px;
+            color: #f5576c;
+        }
+
+        .disconnected-message {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            line-height: 1.6;
+            white-space: pre-line;
+        }
+
+        .reconnect-timer {
+            font-size: 3em;
+            font-weight: bold;
+            color: #ffd700;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top: 4px solid #ffd700;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .opponent-disconnected-banner {
+            background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+            font-size: 1.2em;
+            font-weight: bold;
+            animation: pulse 1s infinite;
+        }
+
+        .error-message {
+            color: #f5576c;
+            text-align: center;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 0;
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-box {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            border: 2px solid #ef4444;
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
+        }
+
+        .modal-icon {
+            font-size: 4em;
+            margin-bottom: 15px;
+        }
+
+        .modal-title {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            color: #ef4444;
+            font-weight: bold;
+        }
+
+        .modal-message {
+            font-size: 1.1em;
+            margin-bottom: 25px;
+            line-height: 1.6;
+            color: #f1f5f9;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+            margin: 0;
+        }
+
+        .btn-yes {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .btn-no {
+            background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="lang-switch" onclick="toggleLanguage()">EN/FA</div>
+    
+    <div class="modal-overlay" id="abandon-modal">
+        <div class="modal-box">
+            <div class="modal-icon">⚠️</div>
+            <div class="modal-title" data-translate="abandonWarning">Warning!</div>
+            <div class="modal-message" data-translate="abandonMessage">
+                If you abandon this match, you will lose and your opponent will win. Are you sure?
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-yes" onclick="confirmAbandon()" data-translate="yes">Yes, Abandon</button>
+                <button class="btn-no" onclick="closeAbandonModal()" data-translate="no">No, Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="abandon-game-modal">
+        <div class="modal-box">
+            <div class="modal-icon">⚠️</div>
+            <div class="modal-title" data-translate="abandonGameWarning">Warning!</div>
+            <div class="modal-message" data-translate="abandonGameMessage">
+                If you abandon this game, you will lose and your opponent will win. Are you sure?
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-yes" onclick="confirmAbandonGame()" data-translate="yes">Yes, Abandon</button>
+                <button class="btn-no" onclick="closeAbandonGameModal()" data-translate="no">No, Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="disconnected-overlay" id="disconnected-overlay">
+        <div class="disconnected-box">
+            <div class="disconnected-icon">📡</div>
+            <div class="disconnected-title" data-translate="disconnected">Disconnected!</div>
+            <div class="disconnected-message" id="disconnected-message-text">Trying to reconnect...</div>
+            <div class="spinner"></div>
+            <div class="reconnect-timer" id="reconnect-timer">30</div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div id="auth-screen" class="screen active">
+            <h1 data-translate="title">🎮 Chips Game</h1>
+            
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="showTab('login', this)" data-translate="login">Login</button>
+                <button class="tab-button" onclick="showTab('register', this)" data-translate="register">Register</button>
+            </div>
+            
+            <div id="login-form">
+                <input type="text" id="login-username" placeholder="Username" data-translate-placeholder="username">
+                <input type="password" id="login-password" placeholder="Password" data-translate-placeholder="password">
+                <div class="error-message" id="login-error"></div>
+                <button onclick="login()" data-translate="login">Login</button>
+            </div>
+            
+            <div id="register-form" style="display: none;">
+                <input type="text" id="register-username" placeholder="Username (3-20 chars)" data-translate-placeholder="usernameRegister">
+                <input type="password" id="register-password" placeholder="Password (min 6 chars)" data-translate-placeholder="passwordRegister">
+                <input type="password" id="register-confirm" placeholder="Confirm Password" data-translate-placeholder="confirmPassword">
+                <div class="error-message" id="register-error"></div>
+                <button onclick="register()" data-translate="register">Register</button>
+            </div>
+        </div>
+
+        <div id="main-screen" class="screen">
+            <div class="user-info">
+                <div class="user-name" id="current-username">Username</div>
+                <div class="logout-btn" onclick="logout()" data-translate="logout">Logout</div>
+            </div>
+            
+            <div class="stats" id="user-stats">
+                <div class="stats-title" data-translate="yourStats">Your Stats</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-wins">0</div>
+                        <div class="stat-label" data-translate="wins">Wins</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-losses" style="color: #f5576c;">0</div>
+                        <div class="stat-label" data-translate="losses">Losses</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-winrate" style="color: #ffd700;">0%</div>
+                        <div class="stat-label" data-translate="winrate">Win Rate</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="active-match-section" style="display: none;">
+                <div class="stats">
+                    <div class="stats-title" data-translate="activeMatch">Active Match Found!</div>
+                    <p data-translate="resumeMatch">You have an unfinished match. What do you want to do?</p>
+                    <button onclick="resumeMatch()" class="button-reconnect" data-translate="reconnect">🔄 Reconnect</button>
+                    <button onclick="showAbandonModal()" class="button-abandon" data-translate="abandon">🚪 Abandon Match</button>
+                </div>
+            </div>
+            
+            <div id="new-match-section">
+                <input type="text" id="room-code-input" placeholder="Enter room code" data-translate-placeholder="roomCode">
+                <button onclick="createRoom()" data-translate="createRoom">Create Room</button>
+                <button onclick="joinRoom()" class="button-secondary" data-translate="joinRoom">Join Room</button>
+            </div>
+        </div>
+
+        <div id="waiting-screen" class="screen">
+            <div class="user-info">
+                <div class="user-name" id="waiting-username">Username</div>
+            </div>
+            <h1 data-translate="waiting">Waiting Room</h1>
+            <div class="room-code" id="display-room-code">XXXXX</div>
+            <p data-translate="shareCode">Share this code with your friend</p>
+            <div id="waiting-disconnect-banner" class="opponent-disconnected-banner" style="display:none;"></div>
+            <div class="players-list" id="players-list"></div>
+            <button onclick="toggleReady()" id="ready-button" data-translate="ready">Ready</button>
+            <button onclick="startGame()" id="start-button" class="button-start" style="display: none;" data-translate="startGame">Start Game</button>
+            <button onclick="leaveRoom()" class="button-secondary" data-translate="leave">Leave Room</button>
+        </div>
+
+        <div id="poison-screen" class="screen">
+            <div class="user-info">
+                <div class="user-name" id="poison-username">Username</div>
+            </div>
+            <h1 data-translate="poisonPhase">Poison Phase</h1>
+            <div id="poison-disconnect-banner" class="opponent-disconnected-banner" style="display:none;"></div>
+            <div class="timer" id="timer">30</div>
+            <p data-translate="selectPoison">Select 3 chips to poison</p>
+            <div class="chips-grid" id="poison-chips"></div>
+            <button onclick="submitPoisons()" data-translate="submit">Submit</button>
+        </div>
+
+        <div id="coin-screen" class="screen">
+            <div class="user-info">
+                <div class="user-name" id="coin-username">Username</div>
+            </div>
+            <h1 data-translate="coinToss">Coin Toss</h1>
+            <div id="coin-disconnect-banner" class="opponent-disconnected-banner" style="display:none;"></div>
+            <div class="coin" id="coin">?</div>
+            <div class="message" id="coin-result"></div>
+        </div>
+
+        <div id="game-screen" class="screen">
+            <div class="user-info">
+                <div class="user-name" id="game-username">Username</div>
+            </div>
+            <h1 id="game-title" data-translate="yourTurn">Your Turn</h1>
+            <div class="health" id="health"></div>
+            <div id="game-disconnect-banner" class="opponent-disconnected-banner" style="display:none;"></div>
+            <div class="chips-grid" id="game-chips"></div>
+            <div class="message" id="game-message"></div>
+            <button onclick="showAbandonGameModal()" class="button-abandon" data-translate="abandonGame">🚪 Abandon Game</button>
+        </div>
+
+        <div id="gameover-screen" class="screen">
+            <div class="user-info">
+                <div class="user-name" id="gameover-username">Username</div>
+            </div>
+            <h1 id="gameover-title">Game Over</h1>
+            <div class="message" id="gameover-message"></div>
+            <div class="votes" id="votes-display"></div>
+            <button onclick="playAgain()" data-translate="playAgain">Play Again</button>
+            <button onclick="backToMain()" class="button-secondary" data-translate="backToMain">Back to Main</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io({
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000
+        });
+        
+        let currentScreen = 'auth';
+        let roomCode = '';
+        let selectedPoisons = [];
+        let myHealth = 3;
+        let language = 'en';
+        let isMyTurn = false;
+        let poisonTimerInterval = null;
+        let playersList = [];
+        let currentUser = null;
+        let reconnectTimerInterval = null;
+        let isDisconnected = false;
+        let isOwner = false;
+        let roomOwner = null;
+        let pendingJoinCode = null;
+        let disconnectTimerInterval = null;
+        
+        function clearPoisonTimer() {
+            if (poisonTimerInterval) {
+                clearInterval(poisonTimerInterval);
+                poisonTimerInterval = null;
+            }
+        }
+        
+        function clearDisconnectTimer() {
+            if (disconnectTimerInterval) {
+                clearInterval(disconnectTimerInterval);
+                disconnectTimerInterval = null;
+                console.log('[🧹 Clear] تایمر disconnect پاک شد.');
+            }
+            
+            // مخفی کردن همه بنرها
+            ['waiting-disconnect-banner', 'poison-disconnect-banner', 'coin-disconnect-banner', 'game-disconnect-banner'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.display = 'none';
+                    el.textContent = '';
+                }
+            });
+        }
+        
+        const translations = {
+            en: {
+                title: '🎮 Chips Game',
+                login: 'Login',
+                register: 'Register',
+                username: 'Username',
+                password: 'Password',
+                usernameRegister: 'Username (3-20 chars)',
+                passwordRegister: 'Password (min 6 chars)',
+                confirmPassword: 'Confirm Password',
+                logout: 'Logout',
+                yourStats: 'Your Stats',
+                wins: 'Wins',
+                losses: 'Losses',
+                winrate: 'Win Rate',
+                activeMatch: 'Active Match Found!',
+                resumeMatch: 'You have an unfinished match. What do you want to do?',
+                reconnect: '🔄 Reconnect',
+                abandon: '🚪 Abandon Match',
+                abandonWarning: '⚠️ Warning!',
+                abandonMessage: 'If you abandon this match, you will lose and your opponent will win. Are you sure?',
+                abandonGameWarning: '⚠️ Warning!',
+                abandonGameMessage: 'If you abandon this game, you will lose and your opponent will win. Are you sure?',
+                abandonGame: '🚪 Abandon Game',
+                yes: 'Yes, Abandon',
+                no: 'No, Cancel',
+                createRoom: 'Create Room',
+                roomCode: 'Enter room code',
+                joinRoom: 'Join Room',
+                waiting: 'Waiting Room',
+                shareCode: 'Share this code with your friend',
+                ready: 'Ready',
+                cancel: 'Cancel',
+                startGame: '🚀 Start Game',
+                partyLeader: 'Party Leader',
+                leave: 'Leave Room',
+                poisonPhase: 'Poison Phase',
+                selectPoison: 'Select 3 chips to poison',
+                submit: 'Submit',
+                coinToss: 'Coin Toss',
+                yourTurn: 'Your Turn',
+                opponentTurn: 'Opponent\'s Turn',
+                playAgain: 'Play Again',
+                backToMain: 'Back to Main',
+                youWin: 'You Win!',
+                youLose: 'You Lose!',
+                disconnected: 'Disconnected!',
+                reconnecting: 'Trying to reconnect...',
+                reconnectingYou: 'You were disconnected. Trying to reconnect...',
+                opponentDisconnected: 'Opponent disconnected! Waiting...',
+                opponentReconnected: 'Opponent reconnected!'
+            },
+            fa: {
+                title: '🎮 بازی چیپس',
+                login: 'ورود',
+                register: 'ثبت‌نام',
+                username: 'نام کاربری',
+                password: 'رمز عبور',
+                usernameRegister: 'نام کاربری (3-20 کاراکتر)',
+                passwordRegister: 'رمز عبور (حداقل 6 کاراکتر)',
+                confirmPassword: 'تکرار رمز عبور',
+                logout: 'خروج',
+                yourStats: 'آمار شما',
+                wins: 'برد',
+                losses: 'باخت',
+                winrate: 'درصد برد',
+                activeMatch: 'بازی فعال پیدا شد!',
+                resumeMatch: 'شما یک بازی ناتمام دارید. چه کاری می‌خواهید انجام دهید؟',
+                reconnect: '🔄 اتصال مجدد',
+                abandon: '🚪 ترک بازی',
+                abandonWarning: '⚠️ هشدار!',
+                abandonMessage: 'اگر بازی را ترک کنید، می‌بازید و حریف شما برنده می‌شود. مطمئن هستید؟',
+                abandonGameWarning: '⚠️ هشدار!',
+                abandonGameMessage: 'اگر بازی را ترک کنید، می‌بازید و حریف شما برنده می‌شود. مطمئن هستید؟',
+                abandonGame: '🚪 ترک بازی',
+                yes: 'بله، ترک می‌کنم',
+                no: 'نه، منصرف شدم',
+                createRoom: 'ساخت لابی',
+                roomCode: 'کد لابی را وارد کنید',
+                joinRoom: 'جوین شدن',
+                waiting: 'اتاق انتظار',
+                shareCode: 'این کد را به دوستت بده',
+                ready: 'آماده',
+                cancel: 'لغو',
+                startGame: '🚀 شروع بازی',
+                partyLeader: 'لیدر گروه',
+                leave: 'ترک لابی',
+                poisonPhase: 'فاز پویزن',
+                selectPoison: '3 چیپس را برای پویزن انتخاب کن',
+                submit: 'ثبت',
+                coinToss: 'پرتاب سکه',
+                yourTurn: 'نوبت تو',
+                opponentTurn: 'نوبت حریف',
+                playAgain: 'بازی دوباره',
+                backToMain: 'بازگشت به منو',
+                youWin: 'تو بردی!',
+                youLose: 'تو باختی!',
+                disconnected: 'قطع شدی!',
+                reconnecting: 'در حال تلاش برای اتصال مجدد...',
+                reconnectingYou: 'ارتباط شما قطع شد. در حال تلاش برای اتصال مجدد...',
+                opponentDisconnected: 'حریف قطع شد! در انتظار...',
+                opponentReconnected: 'حریف دوباره وصل شد!'
+            }
+        };
+
+        function toggleLanguage() {
+            language = language === 'en' ? 'fa' : 'en';
+            updateTranslations();
+        }
+
+        function updateTranslations() {
+            document.querySelectorAll('[data-translate]').forEach(el => {
+                const key = el.getAttribute('data-translate');
+                if (translations[language][key]) {
+                    el.textContent = translations[language][key];
+                }
+            });
+            document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-translate-placeholder');
+                if (translations[language][key]) {
+                    el.placeholder = translations[language][key];
+                }
+            });
+            updateReadyButton();
+            updateStartButton();
+        }
+
+        function showScreen(screenName) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenName + '-screen').classList.add('active');
+            currentScreen = screenName;
+            clearDisconnectTimer();
+        }
+
+        function showTab(tab, btn) {
+            document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            if (tab === 'login') {
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('register-form').style.display = 'none';
+            } else {
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('register-form').style.display = 'block';
+            }
+        }
+
+        function showAbandonModal() {
+            document.getElementById('abandon-modal').classList.add('active');
+        }
+
+        function closeAbandonModal() {
+            document.getElementById('abandon-modal').classList.remove('active');
+        }
+
+        function showAbandonGameModal() {
+            document.getElementById('abandon-game-modal').classList.add('active');
+        }
+
+        function closeAbandonGameModal() {
+            document.getElementById('abandon-game-modal').classList.remove('active');
+        }
+
+        function confirmAbandonGame() {
+            closeAbandonGameModal();
+            socket.emit('abandon_match_during_game');
+            roomCode = '';
+            isOwner = false;
+            roomOwner = null;
+            backToMain();
+        }
+
+        async function confirmAbandon() {
+            closeAbandonModal();
+            
+            try {
+                const response = await fetch('/api/clear-active-room', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: currentUser })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    socket.emit('abandon_match');
+                    roomCode = '';
+                    isOwner = false;
+                    roomOwner = null;
+                    await loadUserData();
+                    showScreen('main');
+                    alert(language === 'en' ? 'Match abandoned. You lost.' : 'بازی ترک شد. شما باختید.');
+                }
+            } catch (error) {
+                console.error('Abandon failed:', error);
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById('register-username').value.trim();
+            const password = document.getElementById('register-password').value;
+            const confirm = document.getElementById('register-confirm').value;
+            const errorDiv = document.getElementById('register-error');
+            
+            errorDiv.textContent = '';
+            
+            if (!username || !password || !confirm) {
+                errorDiv.textContent = language === 'en' ? 'All fields are required' : 'همه فیلدها الزامی هستند';
+                return;
+            }
+            
+            if (password !== confirm) {
+                errorDiv.textContent = language === 'en' ? 'Passwords do not match' : 'رمزهای عبور مطابقت ندارند';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const normalizedUsername = data.username.toLowerCase();
+                    localStorage.setItem('currentUser', normalizedUsername);
+                    currentUser = normalizedUsername;
+                    await loadUserData();
+                    showScreen('main');
+                } else {
+                    errorDiv.textContent = data.error;
+                }
+            } catch (error) {
+                errorDiv.textContent = language === 'en' ? 'Registration failed' : 'ثبت‌نام ناموفق بود';
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errorDiv = document.getElementById('login-error');
+            
+            errorDiv.textContent = '';
+            
+            if (!username || !password) {
+                errorDiv.textContent = language === 'en' ? 'All fields are required' : 'همه فیلدها الزامی هستند';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const normalizedUsername = data.username.toLowerCase();
+                    localStorage.setItem('currentUser', normalizedUsername);
+                    currentUser = normalizedUsername;
+                    await loadUserData(data);
+                    showScreen('main');
+                } else {
+                    errorDiv.textContent = data.error;
+                }
+            } catch (error) {
+                errorDiv.textContent = language === 'en' ? 'Login failed' : 'ورود ناموفق بود';
+            }
+        }
+
+        async function loadUserData(data = null) {
+            if (!currentUser) return;
+            
+            let userData = data;
+            if (!userData) {
+                const response = await fetch(`/api/user/${currentUser}`);
+                userData = await response.json();
+            }
+            
+            document.getElementById('current-username').textContent = currentUser;
+            document.getElementById('waiting-username').textContent = currentUser;
+            document.getElementById('poison-username').textContent = currentUser;
+            document.getElementById('coin-username').textContent = currentUser;
+            document.getElementById('game-username').textContent = currentUser;
+            document.getElementById('gameover-username').textContent = currentUser;
+            
+            const wins = userData.stats.wins;
+            const losses = userData.stats.losses;
+            const total = wins + losses;
+            const winrate = total > 0 ? Math.round((wins / total) * 100) : 0;
+            
+            document.getElementById('stat-wins').textContent = wins;
+            document.getElementById('stat-losses').textContent = losses;
+            document.getElementById('stat-winrate').textContent = winrate + '%';
+            
+            if (userData.activeRoom) {
+                try {
+                    const checkResponse = await fetch(`/api/check-room/${userData.activeRoom}`);
+                    const checkData = await checkResponse.json();
+                    
+                    if (checkData.exists) {
+                        document.getElementById('active-match-section').style.display = 'block';
+                        document.getElementById('new-match-section').style.display = 'none';
+                    } else {
+                        await fetch('/api/clear-active-room', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username: currentUser })
+                        });
+                        document.getElementById('active-match-section').style.display = 'none';
+                        document.getElementById('new-match-section').style.display = 'block';
+                    }
+                } catch (error) {
+                    document.getElementById('active-match-section').style.display = 'none';
+                    document.getElementById('new-match-section').style.display = 'block';
+                }
+            } else {
+                document.getElementById('active-match-section').style.display = 'none';
+                document.getElementById('new-match-section').style.display = 'block';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('currentUser');
+            currentUser = null;
+            socket.emit('leave_room');
+            showScreen('auth');
+        }
+
+        async function resumeMatch() {
+            if (!currentUser) return;
+            
+            try {
+                const userResponse = await fetch(`/api/user/${currentUser}`);
+                const data = await userResponse.json();
+                
+                if (!data.activeRoom) {
+                    alert(language === 'en' ? 'No active match found.' : 'بازی فعالی پیدا نشد.');
+                    await loadUserData();
+                    return;
+                }
+                
+                const checkResponse = await fetch(`/api/check-room/${data.activeRoom}`);
+                const checkData = await checkResponse.json();
+                
+                if (!checkData.exists) {
+                    alert(language === 'en' ? 'Match no longer exists.' : 'بازی دیگه وجود نداره.');
+                    await fetch('/api/clear-active-room', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: currentUser })
+                    });
+                    await loadUserData();
+                    return;
+                }
+                
+                roomCode = data.activeRoom;
+                socket.emit('reconnect_to_game', {
+                    roomCode: data.activeRoom,
+                    username: currentUser
+                });
+            } catch (error) {
+                alert('Failed to resume match');
+            }
+        }
+
+        function createRoom() {
+            if (!currentUser) return;
+            socket.emit('create_room', currentUser);
+        }
+
+        function joinRoom() {
+            if (!currentUser) return;
+            const code = document.getElementById('room-code-input').value.trim().toUpperCase();
+            if (!code) return alert('Please enter room code');
+            
+            pendingJoinCode = code;
+            socket.emit('join_room', { roomCode: code, username: currentUser });
+        }
+
+        function leaveRoom() {
+            socket.emit('leave_room');
+            roomCode = '';
+            isOwner = false;
+            roomOwner = null;
+            pendingJoinCode = null;
+            showScreen('main');
+            loadUserData();
+        }
+
+        function backToMain() {
+            socket.emit('leave_room');
+            roomCode = '';
+            isOwner = false;
+            roomOwner = null;
+            pendingJoinCode = null;
+            showScreen('main');
+            loadUserData();
+        }
+
+        function toggleReady() {
+            socket.emit('player_ready');
+        }
+
+        function startGame() {
+            socket.emit('start_game');
+        }
+
+        function updateReadyButton() {
+            const button = document.getElementById('ready-button');
+            if (!button) return;
+            const myPlayer = playersList.find(p => p.username === currentUser);
+            if (myPlayer && myPlayer.ready) {
+                button.textContent = translations[language].cancel;
+                button.style.background = 'linear-gradient(135deg, #f5576c 0%, #f093fb 100%)';
+            } else {
+                button.textContent = translations[language].ready;
+                button.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+            }
+        }
+
+        function updateStartButton() {
+            const startButton = document.getElementById('start-button');
+            if (!startButton) return;
+            
+            if (isOwner) {
+                startButton.style.display = 'block';
+                startButton.textContent = translations[language].startGame;
+                const allReady = playersList.length === 2 && playersList.every(p => p.ready);
+                startButton.disabled = !allReady;
+            } else {
+                startButton.style.display = 'none';
+            }
+        }
+
+        function updatePlayersList(players, owner) {
+            playersList = players;
+            roomOwner = owner;
+            isOwner = (owner === currentUser);
+            
+            const listDiv = document.getElementById('players-list');
+            if (!listDiv) return;
+            listDiv.innerHTML = '';
+            
+            players.forEach(player => {
+                const item = document.createElement('div');
+                item.className = 'player-item';
+                
+                const name = document.createElement('span');
+                name.className = 'player-name';
+                
+                if (player.isOwner) {
+                    const crown = document.createElement('span');
+                    crown.className = 'owner-crown';
+                    crown.textContent = '👑';
+                    crown.title = language === 'en' ? 'Room Owner' : 'صاحب لابی';
+                    name.appendChild(crown);
+                    
+                    const leaderText = document.createElement('span');
+                    leaderText.style.fontSize = '0.8em';
+                    leaderText.style.color = '#ffd700';
+                    leaderText.style.marginLeft = '5px';
+                    leaderText.textContent = translations[language].partyLeader;
+                    name.appendChild(leaderText);
+                }
+                
+                const nameText = document.createElement('span');
+                nameText.textContent = player.username + (player.username === currentUser ? ' (You)' : '');
+                name.appendChild(nameText);
+                
+                const status = document.createElement('span');
+                status.className = 'player-status';
+                status.textContent = player.ready ? '✓' : '✗';
+                status.style.color = player.ready ? '#4ade80' : '#f5576c';
+                
+                item.appendChild(name);
+                item.appendChild(status);
+                listDiv.appendChild(item);
+            });
+            
+            updateReadyButton();
+            updateStartButton();
+        }
+
+        function startPoisonPhase(duration) {
+            clearPoisonTimer();
+            showScreen('poison');
+            const chipsDiv = document.getElementById('poison-chips');
+            chipsDiv.innerHTML = '';
+            selectedPoisons = [];
+            
+            for (let i = 0; i < 9; i++) {
+                const chip = document.createElement('div');
+                chip.className = 'chip';
+                chip.textContent = i + 1;
+                chip.onclick = () => {
+                    if (chip.classList.contains('selected')) {
+                        chip.classList.remove('selected');
+                        selectedPoisons = selectedPoisons.filter(idx => idx !== i);
+                    } else if (selectedPoisons.length < 3) {
+                        chip.classList.add('selected');
+                        selectedPoisons.push(i);
+                    }
+                };
+                chipsDiv.appendChild(chip);
+            }
+
+            let timeLeft = duration;
+            const timerDiv = document.getElementById('timer');
+            timerDiv.textContent = timeLeft;
+            
+            poisonTimerInterval = setInterval(() => {
+                timeLeft--;
+                timerDiv.textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    clearPoisonTimer();
+                    socket.emit('poison_time_up');
+                }
+            }, 1000);
+        }
+
+        function submitPoisons() {
+            if (selectedPoisons.length !== 3) return alert('Please select exactly 3 chips');
+            clearPoisonTimer();
+            socket.emit('submit_poisons', { poisonedChips: selectedPoisons });
+            showScreen('coin');
+        }
+
+        function playAgain() {
+            socket.emit('play_again');
+        }
+
+        function startGameUI() {
+            showScreen('game');
+            updateHealth();
+            
+            const chipsDiv = document.getElementById('game-chips');
+            chipsDiv.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const chip = document.createElement('div');
+                chip.className = 'chip';
+                chip.textContent = i + 1;
+                chip.onclick = () => {
+                    if (isMyTurn && !chip.classList.contains('eaten') && !chip.classList.contains('disabled')) {
+                        socket.emit('eat_chip', { chipIndex: i });
+                    }
+                };
+                chipsDiv.appendChild(chip);
+            }
+            
+            updateTurnUI();
+        }
+
+        function updateTurnUI() {
+            const chipsDiv = document.getElementById('game-chips');
+            const chips = chipsDiv.children;
+            const gameTitle = document.getElementById('game-title');
+            const messageDiv = document.getElementById('game-message');
+            
+            if (isMyTurn) {
+                gameTitle.textContent = translations[language].yourTurn;
+                if (!messageDiv.textContent || messageDiv.textContent === 'Waiting for opponent...') {
+                    messageDiv.textContent = '';
+                }
+                for (let chip of chips) {
+                    if (!chip.classList.contains('eaten')) {
+                        chip.classList.remove('disabled');
+                    }
+                }
+            } else {
+                gameTitle.textContent = translations[language].opponentTurn;
+                if (!messageDiv.textContent || messageDiv.textContent === '') {
+                    messageDiv.textContent = 'Waiting for opponent...';
+                }
+                for (let chip of chips) {
+                    chip.classList.add('disabled');
+                }
+            }
+        }
+
+        function updateHealth() {
+            const healthDiv = document.getElementById('health');
+            healthDiv.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const heart = document.createElement('span');
+                heart.className = 'heart' + (i >= myHealth ? ' lost' : '');
+                heart.textContent = '❤️';
+                healthDiv.appendChild(heart);
+            }
+        }
+
+        function showDisconnectedOverlay(seconds) {
+            isDisconnected = true;
+            const overlay = document.getElementById('disconnected-overlay');
+            overlay.classList.add('active');
+            
+            const messageDiv = document.getElementById('disconnected-message-text');
+            if (messageDiv) {
+                messageDiv.textContent = translations[language].reconnectingYou;
+            }
+            
+            let timeLeft = seconds;
+            const timerDiv = document.getElementById('reconnect-timer');
+            timerDiv.textContent = timeLeft;
+            
+            if (reconnectTimerInterval) clearInterval(reconnectTimerInterval);
+            
+            reconnectTimerInterval = setInterval(() => {
+                timeLeft--;
+                timerDiv.textContent = timeLeft;
+                
+                if (messageDiv && isDisconnected) {
+                    messageDiv.textContent = `${translations[language].reconnectingYou}\n\nTime remaining: ${timeLeft}s`;
+                }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(reconnectTimerInterval);
+                    hideDisconnectedOverlay();
+                    
+                    if (currentUser) {
+                        fetch('/api/clear-active-room', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username: currentUser })
+                        }).then(() => {
+                            loadUserData().then(() => {
+                                showScreen('main');
+                                alert(language === 'en' ? 'Reconnect timeout. You lost the match.' : 'زمان اتصال مجدد تمام شد. شما باختید.');
+                            });
+                        });
+                    } else {
+                        logout();
+                    }
+                }
+            }, 1000);
+        }
+
+        function hideDisconnectedOverlay() {
+            isDisconnected = false;
+            const overlay = document.getElementById('disconnected-overlay');
+            overlay.classList.remove('active');
+            
+            if (reconnectTimerInterval) {
+                clearInterval(reconnectTimerInterval);
+                reconnectTimerInterval = null;
+            }
+        }
+
+        // ==================== SOCKET EVENT HANDLERS ====================
+
+        socket.on('disconnect', (reason) => {
+            console.log('[Socket] قطع شد:', reason);
+            if (roomCode && currentUser) {
+                showDisconnectedOverlay(30);
+            }
+        });
+
+        socket.on('connect', () => {
+            console.log('[Socket] وصل شد:', socket.id);
+            if (isDisconnected && roomCode && currentUser) {
+                socket.emit('reconnect_to_game', { 
+                    roomCode: roomCode, 
+                    username: currentUser 
+                });
+            }
+        });
+
+        socket.on('reconnect_failed', async ({ message }) => {
+            hideDisconnectedOverlay();
+            
+            try {
+                await fetch('/api/clear-active-room', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: currentUser })
+                });
+            } catch (e) {
+                console.error('Failed to clear active room:', e);
+            }
+            
+            roomCode = '';
+            isOwner = false;
+            roomOwner = null;
+            
+            await loadUserData();
+            showScreen('main');
+            alert(message);
+        });
+
+        socket.on('game_state_restored', (state) => {
+            hideDisconnectedOverlay();
+            myHealth = state.myHealth;
+            isMyTurn = (state.currentTurnUsername === currentUser);
+            isOwner = (state.owner === currentUser);
+            roomOwner = state.owner;
+            
+            if (state.state === 'LOBBY') {
+                showScreen('waiting');
+                document.getElementById('display-room-code').textContent = state.roomCode;
+                updatePlayersList(state.players, state.owner);
+            } else if (state.state === 'POISON_PHASE') {
+                const timeLeft = state.timeLeft || 30;
+                startPoisonPhase(timeLeft);
+            } else if (state.state === 'COIN_TOSS') {
+                showScreen('coin');
+            } else if (state.state === 'PLAYING') {
+                startGameUI();
+                const chipsDiv = document.getElementById('game-chips');
+                state.myEatenChips.forEach(idx => {
+                    if (chipsDiv.children[idx]) {
+                        chipsDiv.children[idx].classList.add('eaten');
+                    }
+                });
+                updateTurnUI();
+            } else if (state.state === 'GAME_OVER') {
+                showScreen('gameover');
+            }
+        });
+
+        socket.on('room_created', ({ roomCode: code, owner }) => {
+            roomCode = code;
+            pendingJoinCode = null;
+            isOwner = (owner === currentUser);
+            roomOwner = owner;
+            document.getElementById('display-room-code').textContent = code;
+            showScreen('waiting');
+            
+            updatePlayersList([{
+                id: socket.id,
+                username: currentUser,
+                ready: false,
+                isOwner: true
+            }], owner);
+        });
+
+        socket.on('player_joined', ({ players, owner }) => {
+            roomCode = pendingJoinCode || roomCode;
+            pendingJoinCode = null;
+            roomOwner = owner;
+            isOwner = (owner === currentUser);
+            
+            document.getElementById('display-room-code').textContent = roomCode;
+            showScreen('waiting');
+            updatePlayersList(players, owner);
+        });
+
+        socket.on('player_left', ({ username }) => {
+            console.log(`[Player Left] ${username} لابی رو ترک کرد.`);
+        });
+
+        socket.on('update_players_list', ({ players, owner }) => {
+            updatePlayersList(players, owner);
+        });
+
+        socket.on('start_poison_phase', ({ duration }) => {
+            startPoisonPhase(duration);
+        });
+
+        socket.on('pause_poison_timer', () => {
+            console.log('[Timer] تایمر پویزن pause شد.');
+            clearPoisonTimer();
+        });
+
+        socket.on('resume_poison_timer', ({ timeLeft }) => {
+            console.log(`[Timer] تایمر پویزن از ${timeLeft} ثانیه resume شد.`);
+            startPoisonPhase(timeLeft);
+        });
+
+        socket.on('pause_coin_timer', () => {
+            console.log('[Timer] تایمر سکه pause شد.');
+        });
+
+        socket.on('start_coin_toss', () => {
+            clearPoisonTimer();
+            showScreen('coin');
+            const coin = document.getElementById('coin');
+            coin.textContent = '?';
+            coin.style.animation = 'none';
+            setTimeout(() => coin.style.animation = 'flip 3s ease-out', 10);
+        });
+
+        socket.on('coin_toss_result', ({ firstPlayerId, firstPlayerName }) => {
+            const coin = document.getElementById('coin');
+            coin.textContent = firstPlayerName;
+            document.getElementById('coin-result').textContent = `${firstPlayerName} starts!`;
+            
+            setTimeout(() => {
+                isMyTurn = (firstPlayerName === currentUser);
+                startGameUI();
+            }, 2000);
+        });
+
+        socket.on('chip_eaten', ({ chipIndex, playerId, isPoisoned, message }) => {
+            if (playerId === socket.id) {
+                const chipsDiv = document.getElementById('game-chips');
+                const chip = chipsDiv.children[chipIndex];
+                chip.classList.add('eaten');
+                
+                const messageDiv = document.getElementById('game-message');
+                messageDiv.textContent = message;
+                messageDiv.className = 'message ' + (isPoisoned ? 'poisoned' : 'safe');
+                
+                if (isPoisoned) {
+                    myHealth--;
+                    updateHealth();
+                }
+                
+                setTimeout(() => {
+                    messageDiv.textContent = '';
+                    messageDiv.className = 'message';
+                }, 2000);
+            }
+        });
+
+        socket.on('turn_changed', ({ nextPlayerId }) => {
+            const nextPlayer = playersList.find(p => p.id === nextPlayerId);
+            if (nextPlayer) {
+                isMyTurn = (nextPlayer.username === currentUser);
+            }
+            updateTurnUI();
+        });
+
+        socket.on('game_over', ({ winnerId, winnerName, loserId, loserName }) => {
+            clearPoisonTimer();
+            clearDisconnectTimer();
+            showScreen('gameover');
+            const isWinner = winnerName === currentUser;
+            
+            const titleEl = document.getElementById('gameover-title');
+            titleEl.textContent = isWinner ? 
+                translations[language].youWin : translations[language].youLose;
+            
+            titleEl.classList.remove('win', 'lose');
+            titleEl.classList.add(isWinner ? 'win' : 'lose');
+            
+            document.getElementById('gameover-message').textContent = isWinner ? 
+                `You defeated ${loserName}!` : `${winnerName} defeated you!`;
+            document.getElementById('votes-display').textContent = '';
+            
+            loadUserData();
+        });
+
+        socket.on('play_again_update', ({ votesCount }) => {
+            document.getElementById('votes-display').textContent = `${votesCount}/2 players ready`;
+        });
+
+        socket.on('restart_game', () => {
+            console.log('[🔄 Restart] بازی جدید شروع شد.');
+            clearPoisonTimer();
+            clearDisconnectTimer();
+            disconnectTimerInterval = null;
+            startPoisonPhase(30);
+        });
+
+        // 🔥 HANDLER تایمر disconnect - نسخه نهایی و قوی
+        socket.on('start_disconnect_timer', ({ disconnectedUsername, timeout, isYou }) => {
+            console.log(`[⏱️ Timer] دریافت شد. isYou: ${isYou}, timeout: ${timeout}s, currentScreen: ${currentScreen}`);
+            
+            if (isYou) {
+                console.log('[⏱️ Timer] این کاربر خودش disconnect شده.');
+                return;
+            }
+            
+            // پاکسازی کامل تایمر قبلی
+            if (disconnectTimerInterval) {
+                clearInterval(disconnectTimerInterval);
+                disconnectTimerInterval = null;
+            }
+            
+            // مخفی کردن همه بنرها
+            ['waiting-disconnect-banner', 'poison-disconnect-banner', 'coin-disconnect-banner', 'game-disconnect-banner'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.display = 'none';
+                }
+            });
+            
+            // پیدا کردن بنر مربوط به صفحه فعلی
+            let bannerId = '';
+            if (currentScreen === 'waiting') bannerId = 'waiting-disconnect-banner';
+            else if (currentScreen === 'poison') bannerId = 'poison-disconnect-banner';
+            else if (currentScreen === 'coin') bannerId = 'coin-disconnect-banner';
+            else if (currentScreen === 'game') bannerId = 'game-disconnect-banner';
+            else {
+                console.warn(`[⏱️ Timer] صفحه فعلی (${currentScreen}) بنر مخصوص ندارد.`);
+                return;
+            }
+
+            const banner = document.getElementById(bannerId);
+            if (!banner) {
+                console.error(`[⏱️ Timer] بنر ${bannerId} در DOM پیدا نشد!`);
+                return;
+            }
+
+            // تنظیم و نمایش بنر
+            let timeLeft = timeout;
+            banner.textContent = `${disconnectedUsername} disconnected! Waiting ${timeLeft}s...`;
+            banner.style.display = 'block';
+            
+            console.log(`[⏱️ Timer] بنر ${bannerId} نمایش داده شد.`);
+
+            disconnectTimerInterval = setInterval(() => {
+                timeLeft--;
+                if (banner) {
+                    banner.textContent = `${disconnectedUsername} disconnected! Waiting ${timeLeft}s...`;
+                }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(disconnectTimerInterval);
+                    disconnectTimerInterval = null;
+                    if (banner) banner.style.display = 'none';
+                    console.log(`[⏱️ Timer] تایمر تمام شد.`);
+                }
+            }, 1000);
+        });
+
+        socket.on('opponent_reconnected', ({ username }) => {
+            console.log(`[✅ Reconnect] ${username} دوباره وصل شد.`);
+            
+            if (disconnectTimerInterval) {
+                clearInterval(disconnectTimerInterval);
+                disconnectTimerInterval = null;
+            }
+            
+            // مخفی کردن همه بنرها
+            ['waiting-disconnect-banner', 'poison-disconnect-banner', 'coin-disconnect-banner', 'game-disconnect-banner'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            
+            // نمایش پیام reconnect در بنر صفحه فعلی
+            let bannerId = '';
+            if (currentScreen === 'waiting') bannerId = 'waiting-disconnect-banner';
+            else if (currentScreen === 'poison') bannerId = 'poison-disconnect-banner';
+            else if (currentScreen === 'coin') bannerId = 'coin-disconnect-banner';
+            else if (currentScreen === 'game') bannerId = 'game-disconnect-banner';
+            
+            if (bannerId) {
+                const banner = document.getElementById(bannerId);
+                if (banner) {
+                    banner.textContent = `${username} ${translations[language].opponentReconnected}`;
+                    banner.style.display = 'block';
+                    banner.style.background = 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)';
+                    
+                    setTimeout(() => {
+                        banner.style.display = 'none';
+                        banner.style.background = '';
+                    }, 2000);
+                }
+            }
+        });
+
+        socket.on('opponent_lost', ({ message }) => {
+            if (disconnectTimerInterval) {
+                clearInterval(disconnectTimerInterval);
+                disconnectTimerInterval = null;
+            }
+            
+            ['waiting-disconnect-banner', 'poison-disconnect-banner', 'coin-disconnect-banner', 'game-disconnect-banner'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            
+            alert(message);
+            backToMain();
+        });
+
+        socket.on('game_aborted', ({ message }) => {
+            alert(message);
+            clearPoisonTimer();
+            if (disconnectTimerInterval) {
+                clearInterval(disconnectTimerInterval);
+                disconnectTimerInterval = null;
+            }
+            backToMain();
+        });
+
+        socket.on('opponent_abandoned', async ({ username, message }) => {
+            alert(message);
+            if (disconnectTimerInterval) {
+                clearInterval(disconnectTimerInterval);
+                disconnectTimerInterval = null;
+            }
+            await loadUserData();
+            backToMain();
+        });
+
+        socket.on('match_abandoned', async ({ success }) => {
+            if (success) {
+                console.log('[Abandon] Match abandoned successfully');
+            }
+        });
+
+        socket.on('error', ({ message }) => {
+            alert(message);
+            pendingJoinCode = null;
+            roomCode = '';
+            isOwner = false;
+            roomOwner = null;
+        });
+
+        window.addEventListener('load', async () => {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                currentUser = savedUser;
+                try {
+                    await loadUserData();
+                    showScreen('main');
+                } catch (error) {
+                    localStorage.removeItem('currentUser');
+                    showScreen('auth');
+                }
+            } else {
+                showScreen('auth');
+            }
+        });
+    </script>
+</body>
+</html>
