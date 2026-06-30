@@ -1603,6 +1603,11 @@
 
         socket.on('restart_game', () => {
             console.log('[🔄 Restart] بازی جدید شروع شد.');
+            
+            // 🔥 FIX: ریست کردن جان‌ها به 3 برای مچ جدید
+            myHealth = 3;
+            updateHealth(); // آپدیت کردن قلب‌های روی صفحه
+            
             clearPoisonTimer();
             clearDisconnectTimer();
             disconnectTimerInterval = null;
