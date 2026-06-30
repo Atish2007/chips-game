@@ -25,10 +25,10 @@ const RECONNECT_TIMEOUT = 30000;
 const USERS_FILE = path.join(__dirname, 'users.json');
 
 // 🔥 NEW: Connected users tracking
-const connectedUsers = {}; // username -> { socketId, status }
+const connectedUsers = {};
 
 // 🔥 NEW: Password reset tokens
-const passwordResetTokens = {}; // username -> { code, expiresAt, email }
+const passwordResetTokens = {};
 
 // ==================== DATABASE ====================
 
@@ -85,8 +85,10 @@ app.post('/api/register', async (req, res) => {
       losses: 0,
       activeRoom: null,
       createdAt: new Date().toISOString(),
-      email: email || null,
-      friends: []
+      email: email ? email.toLowerCase() : null,
+      friends: [],
+      friendRequests: [],
+      sentRequests: []
     };
     saveUsers(users);
     
@@ -129,7 +131,8 @@ app.post('/api/login', async (req, res) => {
       username: normalizedUsername,
       stats: { wins: user.wins, losses: user.losses },
       activeRoom: user.activeRoom,
-      email: user.email || null
+      email: user.email || null,
+      hasEmail: !!user.email
     });
   } catch (error) {
     console.error('[Auth] خطا در لاگین:', error);
@@ -155,7 +158,8 @@ app.get('/api/user/:username', (req, res) => {
     username: normalizedUsername,
     stats: { wins: user.wins, losses: user.losses },
     activeRoom: user.activeRoom,
-    email: user.email || null
+    email: user.email || null,
+    hasEmail: !!user.email
   });
 });
 
@@ -176,8 +180,8 @@ app.post('/api/clear-active-room', (req, res) => {
   res.json({ success: true });
 });
 
-// 🔥 NEW: Update email
-app.post('/api/update-email', (req, res) => {
+// 🔥 NEW: Set/Update email
+app.post('/api/set-email', (req, res) => {
   const { username, email } = req.body;
   if (!username || !email) {
     return res.status(400).json({ error: 'Username and email are required' });
@@ -188,81 +192,175 @@ app.post('/api/update-email', (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
   
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
+  
   users[normalizedUsername].email = email.toLowerCase();
   saveUsers(users);
   
   console.log(`[Email] ایمیل برای ${normalizedUsername} ذخیره شد: ${email}`);
-  res.json({ success: true });
+  res.json({ success: true, email: email.toLowerCase() });
 });
 
-// 🔥 NEW: Add friend
-app.post('/api/add-friend', (req, res) => {
-  const { username, friendUsername } = req.body;
-  if (!username || !friendUsername) {
-    return res.status(400).json({ error: 'Username and friendUsername are required' });
+// 🔥 NEW: Get user email
+app.get('/api/get-email/:username', (req, res) => {
+  const normalizedUsername = req.params.username.toLowerCase();
+  const user = users[normalizedUsername];
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  res.json({ email: user.email || null });
+});
+
+// 🔥 NEW: Send friend request
+app.post('/api/send-friend-request', (req, res) => {
+  const { username, targetUsername } = req.body;
+  if (!username || !targetUsername) {
+    return res.status(400).json({ error: 'Username and targetUsername are required' });
   }
   
   const normalizedUsername = username.toLowerCase();
-  const normalizedFriend = friendUsername.toLowerCase();
+  const normalizedTarget = targetUsername.toLowerCase();
   
-  if (normalizedUsername === normalizedFriend) {
-    return res.status(400).json({ error: 'Cannot add yourself as friend' });
+  if (normalizedUsername === normalizedTarget) {
+    return res.status(400).json({ error: 'Cannot send request to yourself' });
   }
   
-  if (!users[normalizedUsername] || !users[normalizedFriend]) {
+  if (!users[normalizedUsername] || !users[normalizedTarget]) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  if (!users[normalizedTarget].friendRequests) {
+    users[normalizedTarget].friendRequests = [];
+  }
+  if (!users[normalizedUsername].sentRequests) {
+    users[normalizedUsername].sentRequests = [];
+  }
+  
+  if (users[normalizedTarget].friends && users[normalizedTarget].friends.includes(normalizedUsername)) {
+    return res.status(400).json({ error: 'Already friends' });
+  }
+  
+  if (users[normalizedTarget].friendRequests.includes(normalizedUsername)) {
+    return res.status(400).json({ error: 'Request already sent' });
+  }
+  
+  if (users[normalizedUsername].sentRequests.includes(normalizedTarget)) {
+    return res.status(400).json({ error: 'You already sent a request to this user' });
+  }
+  
+  users[normalizedTarget].friendRequests.push(normalizedUsername);
+  users[normalizedUsername].sentRequests.push(normalizedTarget);
+  saveUsers(users);
+  
+  if (connectedUsers[normalizedTarget]) {
+    io.to(connectedUsers[normalizedTarget].socketId).emit('friend_request_notification', { 
+      from: normalizedUsername 
+    });
+  }
+  
+  console.log(`[Friend Request] ${normalizedUsername} به ${normalizedTarget} درخواست فرستاد.`);
+  res.json({ success: true });
+});
+
+// 🔥 NEW: Get friend requests
+app.get('/api/friend-requests/:username', (req, res) => {
+  const normalizedUsername = req.params.username.toLowerCase();
+  const user = users[normalizedUsername];
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  const requests = user.friendRequests || [];
+  const sentRequests = user.sentRequests || [];
+  
+  res.json({ 
+    received: requests,
+    sent: sentRequests
+  });
+});
+
+// 🔥 NEW: Accept friend request
+app.post('/api/accept-friend-request', (req, res) => {
+  const { username, fromUsername } = req.body;
+  if (!username || !fromUsername) {
+    return res.status(400).json({ error: 'Username and fromUsername are required' });
+  }
+  
+  const normalizedUsername = username.toLowerCase();
+  const normalizedFrom = fromUsername.toLowerCase();
+  
+  if (!users[normalizedUsername] || !users[normalizedFrom]) {
     return res.status(404).json({ error: 'User not found' });
   }
   
   if (!users[normalizedUsername].friends) {
     users[normalizedUsername].friends = [];
   }
-  
-  if (users[normalizedUsername].friends.includes(normalizedFriend)) {
-    return res.status(400).json({ error: 'Already friends' });
+  if (!users[normalizedFrom].friends) {
+    users[normalizedFrom].friends = [];
+  }
+  if (!users[normalizedUsername].friendRequests) {
+    users[normalizedUsername].friendRequests = [];
+  }
+  if (!users[normalizedFrom].sentRequests) {
+    users[normalizedFrom].sentRequests = [];
   }
   
-  if (users[normalizedUsername].friends.length >= 50) {
-    return res.status(400).json({ error: 'Friend list is full (max 50)' });
+  if (!users[normalizedUsername].friendRequests.includes(normalizedFrom)) {
+    return res.status(400).json({ error: 'No request found' });
   }
   
-  users[normalizedUsername].friends.push(normalizedFriend);
+  users[normalizedUsername].friends.push(normalizedFrom);
+  users[normalizedFrom].friends.push(normalizedUsername);
   
-  if (!users[normalizedFriend].friends) {
-    users[normalizedFriend].friends = [];
-  }
-  users[normalizedFriend].friends.push(normalizedUsername);
+  users[normalizedUsername].friendRequests = users[normalizedUsername].friendRequests.filter(u => u !== normalizedFrom);
+  users[normalizedFrom].sentRequests = users[normalizedFrom].sentRequests.filter(u => u !== normalizedUsername);
   
   saveUsers(users);
   
-  // اگر دوست آنلاین بود، اطلاع بده
-  if (connectedUsers[normalizedFriend]) {
-    io.to(connectedUsers[normalizedFriend].socketId).emit('friend_added', { username: normalizedUsername });
+  if (connectedUsers[normalizedFrom]) {
+    io.to(connectedUsers[normalizedFrom].socketId).emit('friend_request_accepted_notification', { 
+      username: normalizedUsername 
+    });
   }
   
-  console.log(`[Friends] ${normalizedUsername} و ${normalizedFriend} دوست شدند.`);
+  console.log(`[Friend Request] ${normalizedUsername} درخواست ${normalizedFrom} رو قبول کرد.`);
   res.json({ success: true });
 });
 
-// 🔥 NEW: Remove friend
-app.post('/api/remove-friend', (req, res) => {
-  const { username, friendUsername } = req.body;
-  if (!username || !friendUsername) {
-    return res.status(400).json({ error: 'Username and friendUsername are required' });
+// 🔥 NEW: Reject friend request
+app.post('/api/reject-friend-request', (req, res) => {
+  const { username, fromUsername } = req.body;
+  if (!username || !fromUsername) {
+    return res.status(400).json({ error: 'Username and fromUsername are required' });
   }
   
   const normalizedUsername = username.toLowerCase();
-  const normalizedFriend = friendUsername.toLowerCase();
+  const normalizedFrom = fromUsername.toLowerCase();
   
-  if (users[normalizedUsername]) {
-    users[normalizedUsername].friends = (users[normalizedUsername].friends || []).filter(f => f !== normalizedFriend);
+  if (!users[normalizedUsername] || !users[normalizedFrom]) {
+    return res.status(404).json({ error: 'User not found' });
   }
-  if (users[normalizedFriend]) {
-    users[normalizedFriend].friends = (users[normalizedFriend].friends || []).filter(f => f !== normalizedUsername);
+  
+  if (!users[normalizedUsername].friendRequests) {
+    users[normalizedUsername].friendRequests = [];
   }
+  if (!users[normalizedFrom].sentRequests) {
+    users[normalizedFrom].sentRequests = [];
+  }
+  
+  users[normalizedUsername].friendRequests = users[normalizedUsername].friendRequests.filter(u => u !== normalizedFrom);
+  users[normalizedFrom].sentRequests = users[normalizedFrom].sentRequests.filter(u => u !== normalizedUsername);
   
   saveUsers(users);
   
-  console.log(`[Friends] ${normalizedUsername} و ${normalizedFriend} از دوستی خارج شدند.`);
+  console.log(`[Friend Request] ${normalizedUsername} درخواست ${normalizedFrom} رو رد کرد.`);
   res.json({ success: true });
 });
 
@@ -284,7 +382,7 @@ app.get('/api/friends/:username', (req, res) => {
   res.json({ friends });
 });
 
-// 🔥 NEW: Forgot password - send reset code
+// 🔥 NEW: Forgot password
 app.post('/api/forgot-password', async (req, res) => {
   const { username } = req.body;
   if (!username) {
@@ -305,7 +403,7 @@ app.post('/api/forgot-password', async (req, res) => {
   const code = generateResetCode();
   passwordResetTokens[normalizedUsername] = {
     code,
-    expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+    expiresAt: Date.now() + 10 * 60 * 1000,
     email: user.email
   };
   
@@ -319,7 +417,6 @@ app.post('/api/forgot-password', async (req, res) => {
   }
 });
 
-// 🔥 NEW: Reset password with code
 app.post('/api/reset-password', async (req, res) => {
   const { username, code, newPassword } = req.body;
   if (!username || !code || !newPassword) {
@@ -381,7 +478,7 @@ async function sendResetEmail(email, code, username) {
   await transporter.sendMail({
     from: `"Chips Game" <${process.env.GMAIL_USER}>`,
     to: email,
-    subject: ' Password Reset Code - Chips Game',
+    subject: 'Password Reset Code - Chips Game',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
         <h2 style="color: #667eea;">Chips Game - Password Reset</h2>
@@ -448,7 +545,6 @@ function updateFriendStatus(username, status) {
 io.on('connection', (socket) => {
   console.log(`[+] کاربر متصل شد: ${socket.id}`);
 
-  // 🔥 NEW: User logged in notification
   socket.on('user_logged_in', ({ username }) => {
     connectedUsers[username] = { socketId: socket.id, status: 'main' };
     socket.username = username;
@@ -468,7 +564,6 @@ io.on('connection', (socket) => {
     console.log(`[Friends] ${username} آنلاین شد (Main Screen)`);
   });
 
-  // 🔥 NEW: Chip preview
   socket.on('chip_preview', ({ chipIndex }) => {
     const room = rooms[socket.roomCode];
     if (!room || room.state !== 'PLAYING') return;
@@ -479,7 +574,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 🔥 NEW: Chip preview cleared
   socket.on('chip_preview_cleared', () => {
     const room = rooms[socket.roomCode];
     if (!room) return;
@@ -490,7 +584,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 🔥 NEW: Invite friend
   socket.on('invite_friend', ({ friendUsername }) => {
     const normalizedFriend = friendUsername.toLowerCase();
     if (connectedUsers[normalizedFriend]) {
