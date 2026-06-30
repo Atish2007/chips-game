@@ -23,11 +23,7 @@ const io = new Server(server, {
 const rooms = {};
 const RECONNECT_TIMEOUT = 30000;
 const USERS_FILE = path.join(__dirname, 'users.json');
-
-// 🔥 NEW: Connected users tracking
 const connectedUsers = {};
-
-// 🔥 NEW: Password reset tokens
 const passwordResetTokens = {};
 
 // ==================== DATABASE ====================
@@ -180,7 +176,6 @@ app.post('/api/clear-active-room', (req, res) => {
   res.json({ success: true });
 });
 
-// 🔥 NEW: Set/Update email
 app.post('/api/set-email', (req, res) => {
   const { username, email } = req.body;
   if (!username || !email) {
@@ -204,19 +199,6 @@ app.post('/api/set-email', (req, res) => {
   res.json({ success: true, email: email.toLowerCase() });
 });
 
-// 🔥 NEW: Get user email
-app.get('/api/get-email/:username', (req, res) => {
-  const normalizedUsername = req.params.username.toLowerCase();
-  const user = users[normalizedUsername];
-  
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-  
-  res.json({ email: user.email || null });
-});
-
-// 🔥 NEW: Send friend request
 app.post('/api/send-friend-request', (req, res) => {
   const { username, targetUsername } = req.body;
   if (!username || !targetUsername) {
@@ -249,10 +231,6 @@ app.post('/api/send-friend-request', (req, res) => {
     return res.status(400).json({ error: 'Request already sent' });
   }
   
-  if (users[normalizedUsername].sentRequests.includes(normalizedTarget)) {
-    return res.status(400).json({ error: 'You already sent a request to this user' });
-  }
-  
   users[normalizedTarget].friendRequests.push(normalizedUsername);
   users[normalizedUsername].sentRequests.push(normalizedTarget);
   saveUsers(users);
@@ -267,7 +245,6 @@ app.post('/api/send-friend-request', (req, res) => {
   res.json({ success: true });
 });
 
-// 🔥 NEW: Get friend requests
 app.get('/api/friend-requests/:username', (req, res) => {
   const normalizedUsername = req.params.username.toLowerCase();
   const user = users[normalizedUsername];
@@ -285,7 +262,6 @@ app.get('/api/friend-requests/:username', (req, res) => {
   });
 });
 
-// 🔥 NEW: Accept friend request
 app.post('/api/accept-friend-request', (req, res) => {
   const { username, fromUsername } = req.body;
   if (!username || !fromUsername) {
@@ -334,7 +310,6 @@ app.post('/api/accept-friend-request', (req, res) => {
   res.json({ success: true });
 });
 
-// 🔥 NEW: Reject friend request
 app.post('/api/reject-friend-request', (req, res) => {
   const { username, fromUsername } = req.body;
   if (!username || !fromUsername) {
@@ -364,7 +339,6 @@ app.post('/api/reject-friend-request', (req, res) => {
   res.json({ success: true });
 });
 
-// 🔥 NEW: Get friends list
 app.get('/api/friends/:username', (req, res) => {
   const { username } = req.params;
   const normalizedUsername = username.toLowerCase();
@@ -382,7 +356,6 @@ app.get('/api/friends/:username', (req, res) => {
   res.json({ friends });
 });
 
-// 🔥 NEW: Forgot password
 app.post('/api/forgot-password', async (req, res) => {
   const { username } = req.body;
   if (!username) {
@@ -400,7 +373,7 @@ app.post('/api/forgot-password', async (req, res) => {
     return res.status(400).json({ error: 'No email registered for this account' });
   }
   
-  const code = generateResetCode();
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
   passwordResetTokens[normalizedUsername] = {
     code,
     expiresAt: Date.now() + 10 * 60 * 1000,
@@ -408,12 +381,40 @@ app.post('/api/forgot-password', async (req, res) => {
   };
   
   try {
-    await sendResetEmail(user.email, code, normalizedUsername);
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+      throw new Error('Gmail credentials not configured');
+    }
+    
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD
+      }
+    });
+    
+    await transporter.sendMail({
+      from: `"Chips Game" <${process.env.GMAIL_USER}>`,
+      to: user.email,
+      subject: 'Password Reset Code - Chips Game',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #667eea;">Chips Game - Password Reset</h2>
+          <p>Hello <strong>${normalizedUsername}</strong>,</p>
+          <p>Your password reset code is:</p>
+          <div style="background: #f0f0f0; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; margin: 20px 0; border-radius: 10px;">
+            ${code}
+          </div>
+          <p>This code will expire in <strong>10 minutes</strong>.</p>
+        </div>
+      `
+    });
+    
     console.log(`[Email] کد ریست برای ${normalizedUsername} ارسال شد به ${user.email}`);
     res.json({ success: true, message: 'Reset code sent to your email' });
   } catch (error) {
     console.error('[Email] خطا در ارسال ایمیل:', error);
-    res.status(500).json({ error: 'Failed to send email. Please check server configuration.' });
+    res.status(500).json({ error: 'Failed to send email' });
   }
 });
 
@@ -427,12 +428,12 @@ app.post('/api/reset-password', async (req, res) => {
   const token = passwordResetTokens[normalizedUsername];
   
   if (!token) {
-    return res.status(400).json({ error: 'Invalid or expired code. Please request a new one.' });
+    return res.status(400).json({ error: 'Invalid or expired code' });
   }
   
   if (Date.now() > token.expiresAt) {
     delete passwordResetTokens[normalizedUsername];
-    return res.status(400).json({ error: 'Code expired. Please request a new one.' });
+    return res.status(400).json({ error: 'Code expired' });
   }
   
   if (token.code !== code) {
@@ -450,49 +451,13 @@ app.post('/api/reset-password', async (req, res) => {
     
     delete passwordResetTokens[normalizedUsername];
     
-    console.log(`[Auth] رمز عبور ${normalizedUsername} با موفقیت تغییر کرد.`);
+    console.log(`[Auth] رمز عبور ${normalizedUsername} تغییر کرد.`);
     res.json({ success: true, message: 'Password reset successfully' });
   } catch (error) {
     console.error('[Auth] خطا در تغییر رمز:', error);
     res.status(500).json({ error: 'Failed to reset password' });
   }
 });
-
-function generateResetCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-async function sendResetEmail(email, code, username) {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    throw new Error('Gmail credentials not configured in environment variables');
-  }
-  
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD
-    }
-  });
-  
-  await transporter.sendMail({
-    from: `"Chips Game" <${process.env.GMAIL_USER}>`,
-    to: email,
-    subject: 'Password Reset Code - Chips Game',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #667eea;">Chips Game - Password Reset</h2>
-        <p>Hello <strong>${username}</strong>,</p>
-        <p>Your password reset code is:</p>
-        <div style="background: #f0f0f0; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; margin: 20px 0; border-radius: 10px;">
-          ${code}
-        </div>
-        <p>This code will expire in <strong>10 minutes</strong>.</p>
-        <p style="color: #888; font-size: 12px;">If you didn't request this, please ignore this email.</p>
-      </div>
-    `
-  });
-}
 
 // ==================== SOCKET.IO HELPERS ====================
 
@@ -561,7 +526,7 @@ io.on('connection', (socket) => {
       });
     }
     
-    console.log(`[Friends] ${username} آنلاین شد (Main Screen)`);
+    console.log(`[Friends] ${username} آنلاین شد`);
   });
 
   socket.on('chip_preview', ({ chipIndex }) => {
@@ -591,11 +556,10 @@ io.on('connection', (socket) => {
         from: socket.username, 
         roomCode: socket.roomCode 
       });
-      console.log(`[Invite] ${socket.username} دعوت فرستاد به ${normalizedFriend} برای لابی ${socket.roomCode}`);
+      console.log(`[Invite] ${socket.username} دعوت فرستاد به ${normalizedFriend}`);
     }
   });
 
-  // ==================== RECONNECT ====================
   socket.on('reconnect_to_game', ({ roomCode, username }) => {
     const room = rooms[roomCode];
     if (!room) {
@@ -642,7 +606,7 @@ io.on('connection', (socket) => {
     socket.playerIndex = room.players.findIndex(p => p.id === socket.id);
     socket.username = username;
 
-    console.log(`[Reconnect] ${username} با موفقیت به لابی ${roomCode} برگشت.`);
+    console.log(`[Reconnect] ${username} به لابی ${roomCode} برگشت.`);
 
     if (room.reconnectTimeout) {
       clearTimeout(room.reconnectTimeout);
@@ -688,7 +652,6 @@ io.on('connection', (socket) => {
     });
   });
 
-  // ==================== ROOM MANAGEMENT ====================
   socket.on('create_room', (username) => {
     if (users[username] && users[username].activeRoom) {
       users[username].activeRoom = null;
@@ -816,7 +779,7 @@ io.on('connection', (socket) => {
     const room = rooms[socket.roomCode];
     if (!room) return;
     
-    console.log(`[Start Game] درخواست شروع بازی از ${socket.username}. Owner: ${room.owner}, Players: ${room.players.length}`);
+    console.log(`[Start Game] درخواست شروع بازی از ${socket.username}`);
     
     if (room.owner !== socket.username) {
       return socket.emit('error', { message: 'فقط صاحب لابی می‌تواند بازی را شروع کند!' });
@@ -835,8 +798,6 @@ io.on('connection', (socket) => {
     console.log(`[Game] ${room.owner} بازی رو شروع کرد.`);
     
     emitToRoom(room, 'start_poison_phase', { duration: 30 });
-    
-    console.log(`[Game] start_poison_phase به ${room.players.length} پلیر ارسال شد.`);
   });
 
   socket.on('submit_poisons', ({ poisonedChips }) => {
@@ -1091,7 +1052,7 @@ io.on('connection', (socket) => {
     
     if (!player) return;
     
-    console.log(`[Disconnect] ${player.username} از لابی ${room.code} قطع شد. State: ${room.state}`);
+    console.log(`[Disconnect] ${player.username} از لابی ${room.code} قطع شد.`);
     
     if (room.state === 'LOBBY') {
       const playerIndex = room.players.findIndex(p => p.id === socket.id);
