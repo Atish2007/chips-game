@@ -9,7 +9,8 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; color: white; }
         .container { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border-radius: 20px; padding: 40px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); max-width: 600px; width: 90%; }
         h1 { text-align: center; margin-bottom: 30px; font-size: 2.5em; }
-        .screen { display: none; } .screen.active { display: block; }
+        .screen { display: none; }
+        .screen.active { display: block; }
         input { width: 100%; padding: 15px; margin: 10px 0; border: none; border-radius: 10px; background: rgba(255, 255, 255, 0.2); color: white; font-size: 16px; }
         input::placeholder { color: rgba(255, 255, 255, 0.7); }
         button { width: 100%; padding: 15px; margin: 10px 0; border: none; border-radius: 10px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; font-size: 18px; font-weight: bold; cursor: pointer; transition: transform 0.2s; }
@@ -41,7 +42,8 @@
         .coin { width: 150px; height: 150px; margin: 30px auto; border-radius: 50%; background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); display: flex; justify-content: center; align-items: center; font-size: 1.5em; font-weight: bold; color: #333; animation: flip 3s ease-out; }
         @keyframes flip { 0% { transform: rotateY(0deg) scale(1); } 50% { transform: rotateY(1800deg) scale(1.5); } 100% { transform: rotateY(3600deg) scale(1); } }
         .health { display: flex; justify-content: center; gap: 10px; margin: 20px 0; }
-        .heart { font-size: 2em; } .heart.lost { opacity: 0.3; }
+        .heart { font-size: 2em; }
+        .heart.lost { opacity: 0.3; }
         .stats { background: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 10px; margin: 20px 0; text-align: center; }
         .stats-title { font-size: 1.5em; margin-bottom: 15px; color: #ffd700; }
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
@@ -143,7 +145,7 @@
 
     <div class="modal-overlay" id="abandon-game-modal">
         <div class="modal-box">
-            <div class="modal-icon">️</div>
+            <div class="modal-icon">⚠️</div>
             <div class="modal-title">Warning!</div>
             <div class="modal-message">If you abandon this game, you will lose. Are you sure?</div>
             <div class="modal-buttons">
@@ -173,7 +175,7 @@
 
     <div class="modal-overlay" id="email-modal">
         <div class="modal-box">
-            <div class="modal-icon">📧</div>
+            <div class="modal-icon"></div>
             <div class="modal-title" style="color: #ffd700;">Add Email</div>
             <div class="modal-message">Please add your email for password recovery. This is mandatory.</div>
             <input type="email" id="add-email-input" placeholder="Enter your email" class="email-input">
@@ -184,7 +186,7 @@
 
     <div class="modal-overlay" id="forgot-password-modal">
         <div class="modal-box">
-            <div class="modal-icon"></div>
+            <div class="modal-icon">🔐</div>
             <div class="modal-title" style="color: #ffd700;">Forgot Password</div>
             <div id="forgot-step-1">
                 <input type="text" id="forgot-username" placeholder="Username">
@@ -332,8 +334,7 @@
             <button onclick="backToMain()" class="button-secondary">Back to Main</button>
         </div>
     </div>
-
-    <script src="/socket.io/socket.io.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io({ reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000, reconnectionDelayMax: 5000 });
         let currentScreen = 'auth';
@@ -708,7 +709,7 @@
             try { const response = await fetch('/api/handle-friend-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: currentUser, requestFrom, action }) }); const data = await response.json(); if (data.success) { await loadFriendRequests(); await loadFriends(); if (action === 'accept') alert('Friend added!'); } } catch (error) { console.error('Failed to handle request:', error); }
         }
 
-        async function removeFriend(friendUsername) { if (!confirm(`Remove ${friendUsername} from friends?`)) return; try { const response = await fetch('/api/handle-friend-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: currentUser, requestFrom: friendUsername, action: 'decline' }) }); // Reusing endpoint for simplicity, though ideally a separate remove endpoint const data = await response.json(); if (data.success) { await loadFriends(); } } catch (error) { console.error('Failed to remove friend:', error); } }
+        async function removeFriend(friendUsername) { if (!confirm(`Remove ${friendUsername} from friends?`)) return; try { const response = await fetch('/api/remove-friend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: currentUser, friendUsername }) }); const data = await response.json(); if (data.success) { await loadFriends(); } } catch (error) { console.error('Failed to remove friend:', error); } }
         function inviteFriend(friendUsername) { if (!roomCode) { alert('You must be in a room to invite friends!'); return; } socket.emit('invite_friend', { friendUsername }); alert(`Invite sent to ${friendUsername}!`); }
         function showFriendsModal() { document.getElementById('friends-modal').classList.add('active'); loadFriends(); loadFriendRequests(); showFriendsTab('list'); document.querySelectorAll('.friends-tab')[0].classList.add('active'); document.querySelectorAll('.friends-tab')[1].classList.remove('active'); }
         function closeFriendsModal() { document.getElementById('friends-modal').classList.remove('active'); }
