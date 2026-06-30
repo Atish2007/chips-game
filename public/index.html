@@ -476,6 +476,147 @@
         }
 
         .success-message {
+  color: #4ade80;
+  text-align: center;
+  margin: 10px 0;
+  font-size: 0.9em;
+}
+
+.friends-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 15px 0;
+}
+
+.friend-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  margin: 8px 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.friend-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.friend-status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.friend-status-dot.online {
+  background: #4ade80;
+  box-shadow: 0 0 10px #4ade80;
+}
+
+.friend-status-dot.offline {
+  background: #64748b;
+}
+
+.friend-username {
+  font-size: 1.1em;
+  font-weight: bold;
+}
+
+.friend-location {
+  font-size: 0.8em;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.friend-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.friend-actions button {
+  padding: 8px 12px;
+  font-size: 0.8em;
+  margin: 0;
+  width: auto;
+}
+
+.btn-invite {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+}
+
+.btn-remove {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.add-friend-section {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.add-friend-section input {
+  flex: 1;
+  margin: 0;
+}
+
+.add-friend-section button {
+  width: auto;
+  padding: 15px 20px;
+  margin: 0;
+}
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-size: 0.9em;
+}
+
+.remember-me input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+
+.forgot-password-link {
+  text-align: center;
+  margin: 10px 0;
+  font-size: 0.9em;
+}
+
+.forgot-password-link a {
+  color: #ffd700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.forgot-password-link a:hover {
+  text-decoration: underline;
+}
+
+.email-input {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.button-friends {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.modal-box.friends-modal {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.5);
+  max-width: 500px;
+}
+
+.modal-title.friends-title {
+  color: #8b5cf6;
+}
+
+        .success-message {
             color: #4ade80;
             text-align: center;
             margin: 10px 0;
@@ -833,6 +974,85 @@
             <div class="error-message" id="forgot-error"></div>
         </div>
     </div>
+
+    <!-- 🔥 NEW: Mandatory Email Modal -->
+<div class="modal-overlay" id="email-modal">
+  <div class="modal-box">
+    <div class="modal-icon">📧</div>
+    <div class="modal-title" style="color: #ffd700;">Add Your Email</div>
+    <div class="modal-message">
+      Please add your email for password recovery. This is required for account security.
+    </div>
+    <input type="email" id="mandatory-email-input" placeholder="Enter your email" style="margin: 15px 0;">
+    <button onclick="saveMandatoryEmail()">Save Email</button>
+    <div class="error-message" id="mandatory-email-error"></div>
+  </div>
+</div>
+
+<!-- 🔥 NEW: Friends Modal with Tabs -->
+<div class="modal-overlay" id="friends-modal">
+  <div class="modal-box friends-modal">
+    <div class="modal-icon"></div>
+    <div class="modal-title friends-title">Friends</div>
+    
+    <!-- Tabs -->
+    <div class="tab-buttons" style="margin: 15px 0;">
+      <button class="tab-button active" onclick="showFriendTab('friends', this)">Friends</button>
+      <button class="tab-button" onclick="showFriendTab('requests', this)">Requests <span id="request-count" style="background: #f5576c; padding: 2px 8px; border-radius: 10px; font-size: 0.8em;">0</span></button>
+    </div>
+    
+    <!-- Friends Tab -->
+    <div id="friends-tab" class="friends-list">
+      <!-- Friends will be loaded here -->
+    </div>
+    
+    <!-- Requests Tab -->
+    <div id="requests-tab" class="friends-list" style="display: none;">
+      <div style="margin-bottom: 15px; font-weight: bold; color: #ffd700;">Received Requests:</div>
+      <div id="received-requests-list">
+        <!-- Received requests will be loaded here -->
+      </div>
+      
+      <div style="margin: 15px 0 10px; font-weight: bold; color: #ffd700;">Sent Requests:</div>
+      <div id="sent-requests-list">
+        <!-- Sent requests will be loaded here -->
+      </div>
+    </div>
+    
+    <!-- Add Friend Section -->
+    <div class="add-friend-section">
+      <input type="text" id="add-friend-input" placeholder="Enter username to send request">
+      <button onclick="sendFriendRequest()">Send Request</button>
+    </div>
+    <button onclick="closeFriendsModal()" class="button-secondary" style="margin-top: 15px;">Close</button>
+    <div class="error-message" id="friends-error"></div>
+  </div>
+</div>
+
+<!-- 🔥 NEW: Forgot Password Modal -->
+<div class="modal-overlay" id="forgot-password-modal">
+  <div class="modal-box">
+    <div class="modal-icon">🔐</div>
+    <div class="modal-title" style="color: #ffd700;">Forgot Password</div>
+    
+    <!-- Step 1: Enter username -->
+    <div id="forgot-step-1">
+      <input type="text" id="forgot-username" placeholder="Username">
+      <button onclick="sendResetCode()">Send Reset Code</button>
+    </div>
+    
+    <!-- Step 2: Enter code and new password -->
+    <div id="forgot-step-2" style="display: none;">
+      <div class="success-message" id="reset-code-sent" style="display: none;">Reset code sent to your email!</div>
+      <input type="text" id="reset-code" placeholder="Enter 6-digit code" maxlength="6">
+      <input type="password" id="new-password" placeholder="New Password">
+      <button onclick="resetPassword()">Reset Password</button>
+    </div>
+    
+    <button onclick="closeForgotPasswordModal()" class="button-secondary" style="margin-top: 15px;">Close</button>
+    <div class="error-message" id="forgot-error"></div>
+  </div>
+</div>
     
     <div class="disconnected-overlay" id="disconnected-overlay">
         <div class="disconnected-box">
@@ -856,6 +1076,17 @@
             <div id="login-form">
                 <input type="text" id="login-username" placeholder="Username" data-translate-placeholder="username">
                 <input type="password" id="login-password" placeholder="Password" data-translate-placeholder="password">
+
+                <!-- 🔥 NEW: Remember me -->
+<label class="remember-me">
+  <input type="checkbox" id="remember-me">
+  <span data-translate="rememberMe">Remember me</span>
+</label>
+
+<!-- 🔥 NEW: Forgot password link -->
+<div class="forgot-password-link">
+  <a onclick="showForgotPasswordModal()" data-translate="forgotPasswordLink">Forgot password?</a>
+</div>
                 
                 <!-- 🔥 NEW: Remember me -->
                 <label class="remember-me">
@@ -887,6 +1118,9 @@
                 <div class="user-name" id="current-username">Username</div>
                 <div class="logout-btn" onclick="logout()" data-translate="logout">Logout</div>
             </div>
+
+            <!-- 🔥 NEW: Friends button -->
+<button onclick="showFriendsModal()" class="button-friends" data-translate="friends">👥 Friends</button>
             
             <div class="stats" id="user-stats">
                 <div class="stats-title" data-translate="yourStats">Your Stats</div>
@@ -908,6 +1142,17 @@
             
             <!-- 🔥 NEW: Friends button -->
             <button onclick="showFriendsModal()" class="button-friends" data-translate="friends">👥 Friends</button>
+
+<!-- 🔥 NEW: Email Section -->
+<div class="stats" id="email-section" style="margin-top: 20px;">
+  <div class="stats-title">📧 My Email</div>
+  <div id="current-email-display" style="font-size: 1.1em; margin: 10px 0; color: #ffd700;">
+    No email set
+  </div>
+  <button onclick="showChangeEmailModal()" class="button-secondary" style="margin-top: 10px;">
+    Change Email
+  </button>
+</div>
             
             <div id="active-match-section" style="display: none;">
                 <div class="stats">
@@ -934,6 +1179,15 @@
             <p data-translate="shareCode">Share this code with your friend</p>
             <div id="waiting-disconnect-banner" class="opponent-disconnected-banner" style="display:none;"></div>
             <div class="players-list" id="players-list"></div>
+
+            <!-- 🔥 NEW: Friends Invite Section -->
+<div class="stats" id="friends-invite-section" style="margin-top: 20px; display: none;">
+  <div class="stats-title">👥 Invite Friends</div>
+  <div id="friends-invite-list" class="friends-list">
+    <!-- Friends will be loaded here -->
+  </div>
+</div>
+            
             <button onclick="toggleReady()" id="ready-button" data-translate="ready">Ready</button>
             <button onclick="startGame()" id="start-button" class="button-start" style="display: none;" data-translate="startGame">Start Game</button>
             <button onclick="leaveRoom()" class="button-secondary" data-translate="leave">Leave Room</button>
@@ -1017,6 +1271,9 @@
         let roomOwner = null;
         let pendingJoinCode = null;
         let disconnectTimerInterval = null;
+        let userEmail = null;
+        let pendingInvite = null;
+        let friendsList = [];
         let selectedChipIndex = null; // 🔥 NEW: For chip selection before eating
         let pendingInvite = null; // 🔥 NEW: For friend invite
         let friendsList = []; // 🔥 NEW: Friends list
@@ -1350,6 +1607,432 @@
             }
         }
 
+    // 🔥 NEW: Email management functions
+async function saveMandatoryEmail() {
+  const email = document.getElementById('mandatory-email-input').value.trim();
+  const errorDiv = document.getElementById('mandatory-email-error');
+  
+  if (!email) {
+    errorDiv.textContent = 'Please enter your email';
+    return;
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    errorDiv.textContent = 'Invalid email format';
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/set-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, email })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      userEmail = email;
+      document.getElementById('email-modal').classList.remove('active');
+      updateEmailDisplay();
+    } else {
+      errorDiv.textContent = data.error;
+    }
+  } catch (error) {
+    errorDiv.textContent = 'Failed to save email';
+  }
+}
+
+function updateEmailDisplay() {
+  const display = document.getElementById('current-email-display');
+  if (display) {
+    display.textContent = userEmail || 'No email set';
+  }
+}
+
+function showChangeEmailModal() {
+  document.getElementById('email-modal').classList.add('active');
+  document.getElementById('mandatory-email-input').value = userEmail || '';
+  document.getElementById('mandatory-email-error').textContent = '';
+}
+
+// 🔥 NEW: Friend functions
+async function loadFriends() {
+  if (!currentUser) return;
+  
+  try {
+    const response = await fetch(`/api/friends/${currentUser}`);
+    const data = await response.json();
+    friendsList = data.friends || [];
+    renderFriendsList();
+  } catch (error) {
+    console.error('Failed to load friends:', error);
+  }
+}
+
+function renderFriendsList() {
+  const listDiv = document.getElementById('friends-tab');
+  if (!listDiv) return;
+  
+  if (friendsList.length === 0) {
+    listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 20px;">No friends yet. Add some!</p>';
+    return;
+  }
+  
+  listDiv.innerHTML = '';
+  friendsList.forEach(friend => {
+    const item = document.createElement('div');
+    item.className = 'friend-item';
+    
+    const info = document.createElement('div');
+    info.className = 'friend-info';
+    
+    const statusDot = document.createElement('span');
+    statusDot.className = 'friend-status-dot ' + (friend.status !== 'offline' ? 'online' : 'offline');
+    
+    const username = document.createElement('div');
+    username.innerHTML = `
+      <div class="friend-username">${friend.username}</div>
+      <div class="friend-location">${getFriendStatusText(friend.status)}</div>
+    `;
+    
+    info.appendChild(statusDot);
+    info.appendChild(username);
+    
+    const actions = document.createElement('div');
+    actions.className = 'friend-actions';
+    
+    if (friend.status !== 'offline' && roomCode) {
+      const inviteBtn = document.createElement('button');
+      inviteBtn.className = 'btn-invite';
+      inviteBtn.textContent = 'Invite';
+      inviteBtn.onclick = () => inviteFriend(friend.username);
+      actions.appendChild(inviteBtn);
+    }
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn-remove';
+    removeBtn.textContent = 'Remove';
+    removeBtn.onclick = () => removeFriend(friend.username);
+    actions.appendChild(removeBtn);
+    
+    item.appendChild(info);
+    item.appendChild(actions);
+    listDiv.appendChild(item);
+  });
+}
+
+function getFriendStatusText(status) {
+  const texts = {
+    'main': 'Online (Main)',
+    'room': 'Online (In Room)',
+    'game': 'Online (In Game)',
+    'offline': 'Offline'
+  };
+  return texts[status] || 'Offline';
+}
+
+async function sendFriendRequest() {
+  const input = document.getElementById('add-friend-input');
+  const targetUsername = input.value.trim();
+  const errorDiv = document.getElementById('friends-error');
+  
+  if (!targetUsername) {
+    errorDiv.textContent = 'Please enter a username';
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/send-friend-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, targetUsername })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      input.value = '';
+      errorDiv.textContent = '';
+      alert('Friend request sent!');
+      await loadFriendRequests();
+    } else {
+      errorDiv.textContent = data.error;
+    }
+  } catch (error) {
+    errorDiv.textContent = 'Failed to send request';
+  }
+}
+
+async function loadFriendRequests() {
+  if (!currentUser) return;
+  
+  try {
+    const response = await fetch(`/api/friend-requests/${currentUser}`);
+    const data = await response.json();
+    
+    const receivedList = document.getElementById('received-requests-list');
+    const sentList = document.getElementById('sent-requests-list');
+    const requestCount = document.getElementById('request-count');
+    
+    if (receivedList) {
+      if (data.received.length === 0) {
+        receivedList.innerHTML = '<p style="color: #94a3b8;">No received requests</p>';
+      } else {
+        receivedList.innerHTML = data.received.map(username => `
+          <div class="friend-item">
+            <div class="friend-info">
+              <div class="friend-username">${username}</div>
+            </div>
+            <div class="friend-actions">
+              <button class="btn-invite" onclick="acceptFriendRequest('${username}')">Accept</button>
+              <button class="btn-remove" onclick="rejectFriendRequest('${username}')">Reject</button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+    
+    if (sentList) {
+      if (data.sent.length === 0) {
+        sentList.innerHTML = '<p style="color: #94a3b8;">No sent requests</p>';
+      } else {
+        sentList.innerHTML = data.sent.map(username => `
+          <div class="friend-item">
+            <div class="friend-info">
+              <div class="friend-username">${username}</div>
+              <div class="friend-location" style="color: #ffd700;">Pending</div>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+    
+    if (requestCount) {
+      requestCount.textContent = data.received.length;
+    }
+  } catch (error) {
+    console.error('Failed to load friend requests:', error);
+  }
+}
+
+async function acceptFriendRequest(fromUsername) {
+  try {
+    const response = await fetch('/api/accept-friend-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, fromUsername })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      await loadFriends();
+      await loadFriendRequests();
+      alert(`${fromUsername} is now your friend!`);
+    } else {
+      alert(data.error);
+    }
+  } catch (error) {
+    console.error('Failed to accept request:', error);
+  }
+}
+
+async function rejectFriendRequest(fromUsername) {
+  try {
+    const response = await fetch('/api/reject-friend-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, fromUsername })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      await loadFriendRequests();
+    } else {
+      alert(data.error);
+    }
+  } catch (error) {
+    console.error('Failed to reject request:', error);
+  }
+}
+
+async function removeFriend(friendUsername) {
+  if (!confirm(`Remove ${friendUsername} from friends?`)) {
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/reject-friend-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, fromUsername: friendUsername })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      await loadFriends();
+      alert('Friend removed!');
+    }
+  } catch (error) {
+    console.error('Failed to remove friend:', error);
+  }
+}
+
+function inviteFriend(friendUsername) {
+  if (!roomCode) {
+    alert('You must be in a room to invite friends!');
+    return;
+  }
+  
+  socket.emit('invite_friend', { friendUsername });
+  alert(`Invite sent to ${friendUsername}!`);
+}
+
+function showFriendsModal() {
+  document.getElementById('friends-modal').classList.add('active');
+  loadFriends();
+  loadFriendRequests();
+}
+
+function closeFriendsModal() {
+  document.getElementById('friends-modal').classList.remove('active');
+}
+
+function showFriendTab(tab, btn) {
+  document.querySelectorAll('#friends-modal .tab-button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  
+  if (tab === 'friends') {
+    document.getElementById('friends-tab').style.display = 'block';
+    document.getElementById('requests-tab').style.display = 'none';
+    loadFriends();
+  } else {
+    document.getElementById('friends-tab').style.display = 'none';
+    document.getElementById('requests-tab').style.display = 'block';
+    loadFriendRequests();
+  }
+}
+
+// 🔥 NEW: Forgot password functions
+function showForgotPasswordModal() {
+  document.getElementById('forgot-password-modal').classList.add('active');
+  document.getElementById('forgot-step-1').style.display = 'block';
+  document.getElementById('forgot-step-2').style.display = 'none';
+  document.getElementById('forgot-error').textContent = '';
+  document.getElementById('reset-code-sent').style.display = 'none';
+}
+
+function closeForgotPasswordModal() {
+  document.getElementById('forgot-password-modal').classList.remove('active');
+}
+
+async function sendResetCode() {
+  const username = document.getElementById('forgot-username').value.trim();
+  const errorDiv = document.getElementById('forgot-error');
+  
+  if (!username) {
+    errorDiv.textContent = 'Please enter username';
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      document.getElementById('forgot-step-1').style.display = 'none';
+      document.getElementById('forgot-step-2').style.display = 'block';
+      document.getElementById('reset-code-sent').style.display = 'block';
+      errorDiv.textContent = '';
+    } else {
+      errorDiv.textContent = data.error;
+    }
+  } catch (error) {
+    errorDiv.textContent = 'Failed to send code';
+  }
+}
+
+async function resetPassword() {
+  const username = document.getElementById('forgot-username').value.trim();
+  const code = document.getElementById('reset-code').value.trim();
+  const newPassword = document.getElementById('new-password').value;
+  const errorDiv = document.getElementById('forgot-error');
+  
+  if (!code || !newPassword) {
+    errorDiv.textContent = 'All fields are required';
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, code, newPassword })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      alert('Password reset successfully!');
+      closeForgotPasswordModal();
+      document.getElementById('reset-code').value = '';
+      document.getElementById('new-password').value = '';
+    } else {
+      errorDiv.textContent = data.error;
+    }
+  } catch (error) {
+    errorDiv.textContent = 'Failed to reset password';
+  }
+}
+
+// 🔥 NEW: Load friends for invite in room
+async function loadFriendsForInvite() {
+  if (!currentUser || !roomCode) return;
+  
+  try {
+    const response = await fetch(`/api/friends/${currentUser}`);
+    const data = await response.json();
+    
+    const inviteSection = document.getElementById('friends-invite-section');
+    const inviteList = document.getElementById('friends-invite-list');
+    
+    if (inviteSection && inviteList) {
+      const onlineFriends = data.friends.filter(f => f.status !== 'offline');
+      
+      if (onlineFriends.length === 0) {
+        inviteSection.style.display = 'none';
+      } else {
+        inviteSection.style.display = 'block';
+        inviteList.innerHTML = onlineFriends.map(friend => `
+          <div class="friend-item">
+            <div class="friend-info">
+              <span class="friend-status-dot online"></span>
+              <div>
+                <div class="friend-username">${friend.username}</div>
+                <div class="friend-location">${getFriendStatusText(friend.status)}</div>
+              </div>
+            </div>
+            <div class="friend-actions">
+              <button class="btn-invite" onclick="inviteFriend('${friend.username}')">Invite</button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load friends for invite:', error);
+  }
+}
+        
         async function login() {
             const username = document.getElementById('login-username').value.trim();
             const password = document.getElementById('login-password').value;
@@ -1367,7 +2050,7 @@
                 const response = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username, password, email })
                 });
                 
                 const data = await response.json();
@@ -1383,9 +2066,16 @@
                         localStorage.removeItem('rememberedUser');
                     }
                     
-                    currentUser = normalizedUsername;
-                    await loadUserData(data);
-                    showScreen('main');
+                          currentUser = normalizedUsername;
+      userEmail = data.email;
+      await loadUserData(data);
+      showScreen('main');
+      
+      socket.emit('user_logged_in', { username: normalizedUsername });
+      
+      if (!data.hasEmail) {
+        document.getElementById('email-modal').classList.add('active');
+      }
                     
                     // 🔥 NEW: Notify server about login
                     socket.emit('user_logged_in', { username: normalizedUsername });
@@ -1920,6 +2610,7 @@
             roomOwner = owner;
             document.getElementById('display-room-code').textContent = code;
             showScreen('waiting');
+            loadFriendsForInvite();
             
             updatePlayersList([{
                 id: socket.id,
@@ -1930,6 +2621,7 @@
         });
 
         socket.on('player_joined', ({ players, owner }) => {
+            loadFriendsForInvite();
             roomCode = pendingJoinCode || roomCode;
             pendingJoinCode = null;
             roomOwner = owner;
@@ -2182,6 +2874,55 @@
             }
         });
 
+// 🔥 NEW: Friend socket events
+socket.on('friend_request_notification', ({ from }) => {
+  alert(`${from} sent you a friend request!`);
+  if (currentScreen === 'main') {
+    loadFriendRequests();
+  }
+});
+
+socket.on('friend_request_accepted_notification', ({ username }) => {
+  alert(`${username} accepted your friend request!`);
+  if (currentScreen === 'main') {
+    loadFriends();
+  }
+});
+
+socket.on('friend_status_update', ({ username, status }) => {
+  const friend = friendsList.find(f => f.username === username);
+  if (friend) {
+    friend.status = status;
+    renderFriendsList();
+  }
+});
+
+socket.on('friend_invite', ({ from, roomCode: inviteRoomCode }) => {
+  pendingInvite = { from, roomCode: inviteRoomCode };
+  
+  const notification = document.getElementById('invite-notification');
+  const message = document.getElementById('invite-message');
+  message.textContent = `${from} invited you to play!`;
+  notification.classList.add('active');
+});
+
+function acceptInvite() {
+  if (!pendingInvite) return;
+  
+  const notification = document.getElementById('invite-notification');
+  notification.classList.remove('active');
+  
+  pendingJoinCode = pendingInvite.roomCode;
+  socket.emit('join_room', { roomCode: pendingInvite.roomCode, username: currentUser });
+  pendingInvite = null;
+}
+
+function declineInvite() {
+  const notification = document.getElementById('invite-notification');
+  notification.classList.remove('active');
+  pendingInvite = null;
+}
+        
         socket.on('error', ({ message }) => {
             alert(message);
             pendingJoinCode = null;
