@@ -1,0 +1,16 @@
+{
+  "atish": {
+    "password": "$2b$10$XManjstKuq8WUxMFMZNjy.p9rCgqDLdJCCZCxwsyUYUE/5xv9bYQO",
+    "wins": 16,
+    "losses": 13,
+    "activeRoom": null,
+    "createdAt": "2026-06-29T05:22:54.208Z"
+  },
+  "arshia": {
+    "password": "$2b$10$eeDZUdQR4oD0L5MHiJhN0eXGAyQwSM.YP2yr3.EKoOY8oPUXZrWJ2",
+    "wins": 13,
+    "losses": 16,
+    "activeRoom": null,
+    "createdAt": "2026-06-29T05:23:59.446Z"
+  }
+}
