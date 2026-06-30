@@ -105,6 +105,22 @@
             background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         }
 
+        .button-eat {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            font-size: 20px;
+            padding: 18px;
+        }
+
+        .button-eat:disabled {
+            background: rgba(255, 255, 255, 0.2);
+            cursor: not-allowed;
+            animation: none;
+        }
+
+        .button-friends {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
         .room-code {
             background: rgba(255, 255, 255, 0.2);
             padding: 20px;
@@ -177,6 +193,12 @@
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         }
 
+        .chip.preview {
+            border-color: #ffd700;
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            animation: pulse-gold 1s infinite;
+        }
+
         .chip.eaten {
             opacity: 0.3;
             cursor: not-allowed;
@@ -187,6 +209,11 @@
             opacity: 0.5;
             cursor: not-allowed;
             pointer-events: none;
+        }
+
+        @keyframes pulse-gold {
+            0%, 100% { box-shadow: 0 0 10px #ffd700; }
+            50% { box-shadow: 0 0 20px #ffd700, 0 0 30px #ffd700; }
         }
 
         .timer {
@@ -448,6 +475,13 @@
             font-size: 0.9em;
         }
 
+        .success-message {
+            color: #4ade80;
+            text-align: center;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+
         .tab-buttons {
             display: flex;
             gap: 10px;
@@ -498,6 +532,12 @@
             box-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
         }
 
+        .modal-box.friends-modal {
+            border-color: #8b5cf6;
+            box-shadow: 0 0 30px rgba(139, 92, 246, 0.5);
+            max-width: 500px;
+        }
+
         .modal-icon {
             font-size: 4em;
             margin-bottom: 15px;
@@ -508,6 +548,10 @@
             margin-bottom: 15px;
             color: #ef4444;
             font-weight: bold;
+        }
+
+        .modal-title.friends-title {
+            color: #8b5cf6;
         }
 
         .modal-message {
@@ -534,11 +578,192 @@
         .btn-no {
             background: linear-gradient(135deg, #64748b 0%, #475569 100%);
         }
+
+        /* 🔥 NEW: Friends list styles */
+        .friends-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 15px 0;
+        }
+
+        .friend-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin: 8px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .friend-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .friend-status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .friend-status-dot.online {
+            background: #4ade80;
+            box-shadow: 0 0 10px #4ade80;
+        }
+
+        .friend-status-dot.offline {
+            background: #64748b;
+        }
+
+        .friend-username {
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+
+        .friend-location {
+            font-size: 0.8em;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        .friend-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .friend-actions button {
+            padding: 8px 12px;
+            font-size: 0.8em;
+            margin: 0;
+            width: auto;
+        }
+
+        .btn-invite {
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+        }
+
+        .btn-remove {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .add-friend-section {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .add-friend-section input {
+            flex: 1;
+            margin: 0;
+        }
+
+        .add-friend-section button {
+            width: auto;
+            padding: 15px 20px;
+            margin: 0;
+        }
+
+        /* 🔥 NEW: Remember me checkbox */
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+
+        .remember-me input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin: 0;
+        }
+
+        .forgot-password-link {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+
+        .forgot-password-link a {
+            color: #ffd700;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .forgot-password-link a:hover {
+            text-decoration: underline;
+        }
+
+        /* 🔥 NEW: Invite notification */
+        .invite-notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(139, 92, 246, 0.5);
+            z-index: 3000;
+            display: none;
+            text-align: center;
+        }
+
+        .invite-notification.active {
+            display: block;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateX(-50%) translateY(-100px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+
+        .invite-notification .invite-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .invite-notification button {
+            padding: 10px 20px;
+            font-size: 0.9em;
+            margin: 0;
+            width: auto;
+        }
+
+        /* 🔥 NEW: Opponent preview indicator */
+        .opponent-preview-indicator {
+            text-align: center;
+            font-size: 1em;
+            color: #ffd700;
+            margin: 10px 0;
+            min-height: 25px;
+            font-weight: bold;
+        }
+
+        /* 🔥 NEW: Email input styling */
+        .email-input {
+            background: rgba(255, 255, 255, 0.15);
+        }
     </style>
 </head>
 <body>
     <div class="lang-switch" onclick="toggleLanguage()">EN/FA</div>
     
+    <!-- 🔥 NEW: Invite Notification -->
+    <div class="invite-notification" id="invite-notification">
+        <div id="invite-message">Friend invited you to a game!</div>
+        <div class="invite-buttons">
+            <button class="btn-yes" onclick="acceptInvite()">Accept</button>
+            <button class="btn-no" onclick="declineInvite()">Decline</button>
+        </div>
+    </div>
+
+    <!-- Modal Warning -->
     <div class="modal-overlay" id="abandon-modal">
         <div class="modal-box">
             <div class="modal-icon">⚠️</div>
@@ -553,6 +778,7 @@
         </div>
     </div>
 
+    <!-- Modal Warning for Abandon During Game -->
     <div class="modal-overlay" id="abandon-game-modal">
         <div class="modal-box">
             <div class="modal-icon">⚠️</div>
@@ -564,6 +790,47 @@
                 <button class="btn-yes" onclick="confirmAbandonGame()" data-translate="yes">Yes, Abandon</button>
                 <button class="btn-no" onclick="closeAbandonGameModal()" data-translate="no">No, Cancel</button>
             </div>
+        </div>
+    </div>
+
+    <!-- 🔥 NEW: Friends Modal -->
+    <div class="modal-overlay" id="friends-modal">
+        <div class="modal-box friends-modal">
+            <div class="modal-icon">👥</div>
+            <div class="modal-title friends-title" data-translate="friends">Friends</div>
+            <div class="friends-list" id="friends-list">
+                <!-- Friends will be loaded here -->
+            </div>
+            <div class="add-friend-section">
+                <input type="text" id="add-friend-input" placeholder="Enter username" data-translate-placeholder="enterUsername">
+                <button onclick="addFriend()" data-translate="addFriend">Add</button>
+            </div>
+            <button onclick="closeFriendsModal()" class="button-secondary" data-translate="close" style="margin-top: 15px;">Close</button>
+        </div>
+    </div>
+
+    <!-- 🔥 NEW: Forgot Password Modal -->
+    <div class="modal-overlay" id="forgot-password-modal">
+        <div class="modal-box">
+            <div class="modal-icon">🔐</div>
+            <div class="modal-title" style="color: #ffd700;" data-translate="forgotPassword">Forgot Password</div>
+            
+            <!-- Step 1: Enter username -->
+            <div id="forgot-step-1">
+                <input type="text" id="forgot-username" placeholder="Username" data-translate-placeholder="username">
+                <button onclick="sendResetCode()" data-translate="sendCode">Send Reset Code</button>
+            </div>
+            
+            <!-- Step 2: Enter code and new password -->
+            <div id="forgot-step-2" style="display: none;">
+                <div class="success-message" id="reset-code-sent">Reset code sent to your email!</div>
+                <input type="text" id="reset-code" placeholder="Enter 6-digit code" data-translate-placeholder="enterCode" maxlength="6">
+                <input type="password" id="new-password" placeholder="New Password" data-translate-placeholder="newPassword">
+                <button onclick="resetPassword()" data-translate="resetPassword">Reset Password</button>
+            </div>
+            
+            <button onclick="closeForgotPasswordModal()" class="button-secondary" data-translate="close" style="margin-top: 15px;">Close</button>
+            <div class="error-message" id="forgot-error"></div>
         </div>
     </div>
     
@@ -589,6 +856,18 @@
             <div id="login-form">
                 <input type="text" id="login-username" placeholder="Username" data-translate-placeholder="username">
                 <input type="password" id="login-password" placeholder="Password" data-translate-placeholder="password">
+                
+                <!-- 🔥 NEW: Remember me -->
+                <label class="remember-me">
+                    <input type="checkbox" id="remember-me">
+                    <span data-translate="rememberMe">Remember me</span>
+                </label>
+                
+                <!-- 🔥 NEW: Forgot password link -->
+                <div class="forgot-password-link">
+                    <a onclick="showForgotPasswordModal()" data-translate="forgotPasswordLink">Forgot password?</a>
+                </div>
+                
                 <div class="error-message" id="login-error"></div>
                 <button onclick="login()" data-translate="login">Login</button>
             </div>
@@ -597,6 +876,7 @@
                 <input type="text" id="register-username" placeholder="Username (3-20 chars)" data-translate-placeholder="usernameRegister">
                 <input type="password" id="register-password" placeholder="Password (min 6 chars)" data-translate-placeholder="passwordRegister">
                 <input type="password" id="register-confirm" placeholder="Confirm Password" data-translate-placeholder="confirmPassword">
+                <input type="email" id="register-email" class="email-input" placeholder="Email (optional, for password recovery)" data-translate-placeholder="emailOptional">
                 <div class="error-message" id="register-error"></div>
                 <button onclick="register()" data-translate="register">Register</button>
             </div>
@@ -626,11 +906,14 @@
                 </div>
             </div>
             
+            <!-- 🔥 NEW: Friends button -->
+            <button onclick="showFriendsModal()" class="button-friends" data-translate="friends">👥 Friends</button>
+            
             <div id="active-match-section" style="display: none;">
                 <div class="stats">
                     <div class="stats-title" data-translate="activeMatch">Active Match Found!</div>
                     <p data-translate="resumeMatch">You have an unfinished match. What do you want to do?</p>
-                    <button onclick="resumeMatch()" class="button-reconnect" data-translate="reconnect">🔄 Reconnect</button>
+                    <button onclick="resumeMatch()" class="button-reconnect" data-translate="reconnect"> Reconnect</button>
                     <button onclick="showAbandonModal()" class="button-abandon" data-translate="abandon">🚪 Abandon Match</button>
                 </div>
             </div>
@@ -685,8 +968,16 @@
             <h1 id="game-title" data-translate="yourTurn">Your Turn</h1>
             <div class="health" id="health"></div>
             <div id="game-disconnect-banner" class="opponent-disconnected-banner" style="display:none;"></div>
+            
+            <!-- 🔥 NEW: Opponent preview indicator -->
+            <div class="opponent-preview-indicator" id="opponent-preview-indicator"></div>
+            
             <div class="chips-grid" id="game-chips"></div>
             <div class="message" id="game-message"></div>
+            
+            <!-- 🔥 NEW: Eat button -->
+            <button id="eat-button" class="button-eat" onclick="confirmEat()" disabled data-translate="eat">🍟 Eat</button>
+            
             <button onclick="showAbandonGameModal()" class="button-abandon" data-translate="abandonGame">🚪 Abandon Game</button>
         </div>
 
@@ -726,6 +1017,9 @@
         let roomOwner = null;
         let pendingJoinCode = null;
         let disconnectTimerInterval = null;
+        let selectedChipIndex = null; // 🔥 NEW: For chip selection before eating
+        let pendingInvite = null; // 🔥 NEW: For friend invite
+        let friendsList = []; // 🔥 NEW: Friends list
         
         function clearPoisonTimer() {
             if (poisonTimerInterval) {
@@ -738,10 +1032,8 @@
             if (disconnectTimerInterval) {
                 clearInterval(disconnectTimerInterval);
                 disconnectTimerInterval = null;
-                console.log('[🧹 Clear] تایمر disconnect پاک شد.');
             }
             
-            // مخفی کردن همه بنرها
             ['waiting-disconnect-banner', 'poison-disconnect-banner', 'coin-disconnect-banner', 'game-disconnect-banner'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
@@ -761,6 +1053,7 @@
                 usernameRegister: 'Username (3-20 chars)',
                 passwordRegister: 'Password (min 6 chars)',
                 confirmPassword: 'Confirm Password',
+                emailOptional: 'Email (optional, for password recovery)',
                 logout: 'Logout',
                 yourStats: 'Your Stats',
                 wins: 'Wins',
@@ -774,7 +1067,7 @@
                 abandonMessage: 'If you abandon this match, you will lose and your opponent will win. Are you sure?',
                 abandonGameWarning: '⚠️ Warning!',
                 abandonGameMessage: 'If you abandon this game, you will lose and your opponent will win. Are you sure?',
-                abandonGame: '🚪 Abandon Game',
+                abandonGame: ' Abandon Game',
                 yes: 'Yes, Abandon',
                 no: 'No, Cancel',
                 createRoom: 'Create Room',
@@ -784,7 +1077,7 @@
                 shareCode: 'Share this code with your friend',
                 ready: 'Ready',
                 cancel: 'Cancel',
-                startGame: '🚀 Start Game',
+                startGame: ' Start Game',
                 partyLeader: 'Party Leader',
                 leave: 'Leave Room',
                 poisonPhase: 'Poison Phase',
@@ -801,10 +1094,38 @@
                 reconnecting: 'Trying to reconnect...',
                 reconnectingYou: 'You were disconnected. Trying to reconnect...',
                 opponentDisconnected: 'Opponent disconnected! Waiting...',
-                opponentReconnected: 'Opponent reconnected!'
+                opponentReconnected: 'Opponent reconnected!',
+                rememberMe: 'Remember me',
+                forgotPasswordLink: 'Forgot password?',
+                forgotPassword: 'Forgot Password',
+                sendCode: 'Send Reset Code',
+                enterCode: 'Enter 6-digit code',
+                newPassword: 'New Password',
+                resetPassword: 'Reset Password',
+                close: 'Close',
+                friends: '👥 Friends',
+                addFriend: 'Add',
+                enterUsername: 'Enter username',
+                invite: 'Invite',
+                remove: 'Remove',
+                eat: ' Eat',
+                selectChip: 'Select a chip to eat',
+                opponentChoosing: 'Opponent is choosing...',
+                onlineMain: 'Online (Main)',
+                onlineRoom: 'Online (In Room)',
+                onlineGame: 'Online (In Game)',
+                offline: 'Offline',
+                inviteReceived: ' invited you to play!',
+                codeSent: 'Reset code sent to your email!',
+                passwordReset: 'Password reset successfully!',
+                friendAdded: 'Friend added!',
+                friendRemoved: 'Friend removed!',
+                alreadyFriends: 'Already friends!',
+                userNotFound: 'User not found!',
+                noEmail: 'No email registered for this account'
             },
             fa: {
-                title: '🎮 بازی چیپس',
+                title: ' بازی چیپس',
                 login: 'ورود',
                 register: 'ثبت‌نام',
                 username: 'نام کاربری',
@@ -812,6 +1133,7 @@
                 usernameRegister: 'نام کاربری (3-20 کاراکتر)',
                 passwordRegister: 'رمز عبور (حداقل 6 کاراکتر)',
                 confirmPassword: 'تکرار رمز عبور',
+                emailOptional: 'ایمیل (اختیاری، برای بازیابی رمز)',
                 logout: 'خروج',
                 yourStats: 'آمار شما',
                 wins: 'برد',
@@ -852,7 +1174,35 @@
                 reconnecting: 'در حال تلاش برای اتصال مجدد...',
                 reconnectingYou: 'ارتباط شما قطع شد. در حال تلاش برای اتصال مجدد...',
                 opponentDisconnected: 'حریف قطع شد! در انتظار...',
-                opponentReconnected: 'حریف دوباره وصل شد!'
+                opponentReconnected: 'حریف دوباره وصل شد!',
+                rememberMe: 'مرا به خاطر بسپار',
+                forgotPasswordLink: 'رمز عبور را فراموش کرده‌اید؟',
+                forgotPassword: 'فراموشی رمز عبور',
+                sendCode: 'ارسال کد بازیابی',
+                enterCode: 'کد 6 رقمی را وارد کنید',
+                newPassword: 'رمز عبور جدید',
+                resetPassword: 'بازیابی رمز عبور',
+                close: 'بستن',
+                friends: '👥 دوستان',
+                addFriend: 'اضافه',
+                enterUsername: 'نام کاربری را وارد کنید',
+                invite: 'دعوت',
+                remove: 'حذف',
+                eat: ' خوردن',
+                selectChip: 'یک چیپس برای خوردن انتخاب کن',
+                opponentChoosing: 'حریف در حال انتخاب است...',
+                onlineMain: 'آنلاین (منو)',
+                onlineRoom: 'آنلاین (در لابی)',
+                onlineGame: 'آنلاین (در بازی)',
+                offline: 'آفلاین',
+                inviteReceived: ' شما را به بازی دعوت کرد!',
+                codeSent: 'کد بازیابی به ایمیل شما ارسال شد!',
+                passwordReset: 'رمز عبور با موفقیت تغییر کرد!',
+                friendAdded: 'دوست اضافه شد!',
+                friendRemoved: 'دوست حذف شد!',
+                alreadyFriends: 'قبلاً دوست هستید!',
+                userNotFound: 'کاربر پیدا نشد!',
+                noEmail: 'ایمیلی برای این حساب ثبت نشده'
             }
         };
 
@@ -883,6 +1233,15 @@
             document.getElementById(screenName + '-screen').classList.add('active');
             currentScreen = screenName;
             clearDisconnectTimer();
+            
+            //  NEW: Update friend status
+            if (currentUser && screenName === 'main') {
+                socket.emit('update_friend_status', { username: currentUser, status: 'main' });
+            } else if (currentUser && screenName === 'waiting') {
+                socket.emit('update_friend_status', { username: currentUser, status: 'room' });
+            } else if (currentUser && screenName === 'game') {
+                socket.emit('update_friend_status', { username: currentUser, status: 'game' });
+            }
         }
 
         function showTab(tab, btn) {
@@ -953,6 +1312,7 @@
             const username = document.getElementById('register-username').value.trim();
             const password = document.getElementById('register-password').value;
             const confirm = document.getElementById('register-confirm').value;
+            const email = document.getElementById('register-email').value.trim();
             const errorDiv = document.getElementById('register-error');
             
             errorDiv.textContent = '';
@@ -971,7 +1331,7 @@
                 const response = await fetch('/api/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username, password, email })
                 });
                 
                 const data = await response.json();
@@ -993,6 +1353,7 @@
         async function login() {
             const username = document.getElementById('login-username').value.trim();
             const password = document.getElementById('login-password').value;
+            const rememberMe = document.getElementById('remember-me').checked;
             const errorDiv = document.getElementById('login-error');
             
             errorDiv.textContent = '';
@@ -1014,9 +1375,20 @@
                 if (data.success) {
                     const normalizedUsername = data.username.toLowerCase();
                     localStorage.setItem('currentUser', normalizedUsername);
+                    
+                    // 🔥 NEW: Remember me
+                    if (rememberMe) {
+                        localStorage.setItem('rememberedUser', normalizedUsername);
+                    } else {
+                        localStorage.removeItem('rememberedUser');
+                    }
+                    
                     currentUser = normalizedUsername;
                     await loadUserData(data);
                     showScreen('main');
+                    
+                    // 🔥 NEW: Notify server about login
+                    socket.emit('user_logged_in', { username: normalizedUsername });
                 } else {
                     errorDiv.textContent = data.error;
                 }
@@ -1075,6 +1447,9 @@
                 document.getElementById('active-match-section').style.display = 'none';
                 document.getElementById('new-match-section').style.display = 'block';
             }
+            
+            // 🔥 NEW: Load friends
+            await loadFriends();
         }
 
         function logout() {
@@ -1293,13 +1668,16 @@
             
             const chipsDiv = document.getElementById('game-chips');
             chipsDiv.innerHTML = '';
+            selectedChipIndex = null;
+            updateEatButton();
+            
             for (let i = 0; i < 9; i++) {
                 const chip = document.createElement('div');
                 chip.className = 'chip';
                 chip.textContent = i + 1;
                 chip.onclick = () => {
                     if (isMyTurn && !chip.classList.contains('eaten') && !chip.classList.contains('disabled')) {
-                        socket.emit('eat_chip', { chipIndex: i });
+                        selectChip(i);
                     }
                 };
                 chipsDiv.appendChild(chip);
@@ -1308,17 +1686,75 @@
             updateTurnUI();
         }
 
+        // 🔥 NEW: Select chip (preview)
+        function selectChip(chipIndex) {
+            const chipsDiv = document.getElementById('game-chips');
+            const chips = chipsDiv.children;
+            
+            // Clear previous selection
+            for (let chip of chips) {
+                chip.classList.remove('selected');
+            }
+            
+            // Clear previous preview
+            socket.emit('chip_preview_cleared');
+            
+            // Select new chip
+            chips[chipIndex].classList.add('selected');
+            selectedChipIndex = chipIndex;
+            
+            // Send preview to opponent
+            socket.emit('chip_preview', { chipIndex });
+            
+            // Enable eat button
+            updateEatButton();
+        }
+
+        // 🔥 NEW: Update eat button state
+        function updateEatButton() {
+            const eatButton = document.getElementById('eat-button');
+            if (eatButton) {
+                eatButton.disabled = !isMyTurn || selectedChipIndex === null;
+            }
+        }
+
+        // 🔥 NEW: Confirm eat
+        function confirmEat() {
+            if (selectedChipIndex === null || !isMyTurn) return;
+            
+            const chipIndex = selectedChipIndex;
+            selectedChipIndex = null;
+            
+            // Clear preview
+            socket.emit('chip_preview_cleared');
+            
+            // Clear selection UI
+            const chipsDiv = document.getElementById('game-chips');
+            const chips = chipsDiv.children;
+            for (let chip of chips) {
+                chip.classList.remove('selected');
+            }
+            
+            // Disable eat button
+            updateEatButton();
+            
+            // Send eat command
+            socket.emit('eat_chip', { chipIndex });
+        }
+
         function updateTurnUI() {
             const chipsDiv = document.getElementById('game-chips');
             const chips = chipsDiv.children;
             const gameTitle = document.getElementById('game-title');
             const messageDiv = document.getElementById('game-message');
+            const previewIndicator = document.getElementById('opponent-preview-indicator');
             
             if (isMyTurn) {
                 gameTitle.textContent = translations[language].yourTurn;
                 if (!messageDiv.textContent || messageDiv.textContent === 'Waiting for opponent...') {
                     messageDiv.textContent = '';
                 }
+                previewIndicator.textContent = translations[language].selectChip;
                 for (let chip of chips) {
                     if (!chip.classList.contains('eaten')) {
                         chip.classList.remove('disabled');
@@ -1329,10 +1765,13 @@
                 if (!messageDiv.textContent || messageDiv.textContent === '') {
                     messageDiv.textContent = 'Waiting for opponent...';
                 }
+                previewIndicator.textContent = translations[language].opponentChoosing;
                 for (let chip of chips) {
                     chip.classList.add('disabled');
                 }
             }
+            
+            updateEatButton();
         }
 
         function updateHealth() {
@@ -1603,18 +2042,14 @@
 
         socket.on('restart_game', () => {
             console.log('[🔄 Restart] بازی جدید شروع شد.');
-            
-            // 🔥 FIX: ریست کردن جان‌ها به 3 برای مچ جدید
             myHealth = 3;
-            updateHealth(); // آپدیت کردن قلب‌های روی صفحه
-            
+            updateHealth();
             clearPoisonTimer();
             clearDisconnectTimer();
             disconnectTimerInterval = null;
             startPoisonPhase(30);
         });
 
-        // 🔥 HANDLER تایمر disconnect - نسخه نهایی و قوی
         socket.on('start_disconnect_timer', ({ disconnectedUsername, timeout, isYou }) => {
             console.log(`[⏱️ Timer] دریافت شد. isYou: ${isYou}, timeout: ${timeout}s, currentScreen: ${currentScreen}`);
             
@@ -1623,13 +2058,11 @@
                 return;
             }
             
-            // پاکسازی کامل تایمر قبلی
             if (disconnectTimerInterval) {
                 clearInterval(disconnectTimerInterval);
                 disconnectTimerInterval = null;
             }
             
-            // مخفی کردن همه بنرها
             ['waiting-disconnect-banner', 'poison-disconnect-banner', 'coin-disconnect-banner', 'game-disconnect-banner'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
@@ -1637,7 +2070,6 @@
                 }
             });
             
-            // پیدا کردن بنر مربوط به صفحه فعلی
             let bannerId = '';
             if (currentScreen === 'waiting') bannerId = 'waiting-disconnect-banner';
             else if (currentScreen === 'poison') bannerId = 'poison-disconnect-banner';
@@ -1650,11 +2082,10 @@
 
             const banner = document.getElementById(bannerId);
             if (!banner) {
-                console.error(`[⏱️ Timer] بنر ${bannerId} در DOM پیدا نشد!`);
+                console.error(`[️ Timer] بنر ${bannerId} در DOM پیدا نشد!`);
                 return;
             }
 
-            // تنظیم و نمایش بنر
             let timeLeft = timeout;
             banner.textContent = `${disconnectedUsername} disconnected! Waiting ${timeLeft}s...`;
             banner.style.display = 'block';
@@ -1684,13 +2115,11 @@
                 disconnectTimerInterval = null;
             }
             
-            // مخفی کردن همه بنرها
             ['waiting-disconnect-banner', 'poison-disconnect-banner', 'coin-disconnect-banner', 'game-disconnect-banner'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
             
-            // نمایش پیام reconnect در بنر صفحه فعلی
             let bannerId = '';
             if (currentScreen === 'waiting') bannerId = 'waiting-disconnect-banner';
             else if (currentScreen === 'poison') bannerId = 'poison-disconnect-banner';
@@ -1761,6 +2190,299 @@
             roomOwner = null;
         });
 
+        // 🔥 NEW: Opponent chip preview
+        socket.on('opponent_chip_preview', ({ chipIndex, playerId }) => {
+            const chipsDiv = document.getElementById('game-chips');
+            if (!chipsDiv) return;
+            
+            // Clear previous preview
+            for (let chip of chipsDiv.children) {
+                chip.classList.remove('preview');
+            }
+            
+            // Add preview to selected chip
+            if (chipsDiv.children[chipIndex]) {
+                chipsDiv.children[chipIndex].classList.add('preview');
+            }
+            
+            // Update indicator
+            const indicator = document.getElementById('opponent-preview-indicator');
+            if (indicator && !isMyTurn) {
+                indicator.textContent = translations[language].opponentChoosing;
+            }
+        });
+
+        socket.on('opponent_chip_preview_cleared', ({ playerId }) => {
+            const chipsDiv = document.getElementById('game-chips');
+            if (!chipsDiv) return;
+            
+            for (let chip of chipsDiv.children) {
+                chip.classList.remove('preview');
+            }
+        });
+
+        // 🔥 NEW: Friend invite
+        socket.on('friend_invite', ({ from, roomCode }) => {
+            pendingInvite = { from, roomCode };
+            
+            const notification = document.getElementById('invite-notification');
+            const message = document.getElementById('invite-message');
+            message.textContent = `${from}${translations[language].inviteReceived}`;
+            notification.classList.add('active');
+        });
+
+        function acceptInvite() {
+            if (!pendingInvite) return;
+            
+            const notification = document.getElementById('invite-notification');
+            notification.classList.remove('active');
+            
+            pendingJoinCode = pendingInvite.roomCode;
+            socket.emit('join_room', { roomCode: pendingInvite.roomCode, username: currentUser });
+            pendingInvite = null;
+        }
+
+        function declineInvite() {
+            const notification = document.getElementById('invite-notification');
+            notification.classList.remove('active');
+            pendingInvite = null;
+        }
+
+        // 🔥 NEW: Friends functions
+        async function loadFriends() {
+            if (!currentUser) return;
+            
+            try {
+                const response = await fetch(`/api/friends/${currentUser}`);
+                const data = await response.json();
+                friendsList = data.friends || [];
+                renderFriendsList();
+            } catch (error) {
+                console.error('Failed to load friends:', error);
+            }
+        }
+
+        function renderFriendsList() {
+            const listDiv = document.getElementById('friends-list');
+            if (!listDiv) return;
+            
+            if (friendsList.length === 0) {
+                listDiv.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 20px;">No friends yet. Add some!</p>';
+                return;
+            }
+            
+            listDiv.innerHTML = '';
+            friendsList.forEach(friend => {
+                const item = document.createElement('div');
+                item.className = 'friend-item';
+                
+                const info = document.createElement('div');
+                info.className = 'friend-info';
+                
+                const statusDot = document.createElement('span');
+                statusDot.className = 'friend-status-dot ' + (friend.status !== 'offline' ? 'online' : 'offline');
+                
+                const username = document.createElement('div');
+                username.innerHTML = `
+                    <div class="friend-username">${friend.username}</div>
+                    <div class="friend-location">${getFriendStatusText(friend.status)}</div>
+                `;
+                
+                info.appendChild(statusDot);
+                info.appendChild(username);
+                
+                const actions = document.createElement('div');
+                actions.className = 'friend-actions';
+                
+                if (friend.status !== 'offline') {
+                    const inviteBtn = document.createElement('button');
+                    inviteBtn.className = 'btn-invite';
+                    inviteBtn.textContent = translations[language].invite;
+                    inviteBtn.onclick = () => inviteFriend(friend.username);
+                    actions.appendChild(inviteBtn);
+                }
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'btn-remove';
+                removeBtn.textContent = translations[language].remove;
+                removeBtn.onclick = () => removeFriend(friend.username);
+                actions.appendChild(removeBtn);
+                
+                item.appendChild(info);
+                item.appendChild(actions);
+                listDiv.appendChild(item);
+            });
+        }
+
+        function getFriendStatusText(status) {
+            const texts = {
+                'main': translations[language].onlineMain,
+                'room': translations[language].onlineRoom,
+                'game': translations[language].onlineGame,
+                'offline': translations[language].offline
+            };
+            return texts[status] || translations[language].offline;
+        }
+
+        async function addFriend() {
+            const input = document.getElementById('add-friend-input');
+            const friendUsername = input.value.trim();
+            
+            if (!friendUsername) return;
+            
+            try {
+                const response = await fetch('/api/add-friend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: currentUser, friendUsername })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    input.value = '';
+                    await loadFriends();
+                    alert(translations[language].friendAdded);
+                } else {
+                    alert(data.error);
+                }
+            } catch (error) {
+                console.error('Failed to add friend:', error);
+            }
+        }
+
+        async function removeFriend(friendUsername) {
+            if (!confirm(language === 'en' ? `Remove ${friendUsername} from friends?` : `حذف ${friendUsername} از دوستان؟`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/remove-friend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: currentUser, friendUsername })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    await loadFriends();
+                    alert(translations[language].friendRemoved);
+                }
+            } catch (error) {
+                console.error('Failed to remove friend:', error);
+            }
+        }
+
+        function inviteFriend(friendUsername) {
+            if (!roomCode) {
+                alert(language === 'en' ? 'You must be in a room to invite friends!' : 'باید در یک لابی باشید تا دوستان را دعوت کنید!');
+                return;
+            }
+            
+            socket.emit('invite_friend', { friendUsername });
+            alert(language === 'en' ? `Invite sent to ${friendUsername}!` : `دعوتنامه برای ${friendUsername} ارسال شد!`);
+        }
+
+        function showFriendsModal() {
+            document.getElementById('friends-modal').classList.add('active');
+            loadFriends();
+        }
+
+        function closeFriendsModal() {
+            document.getElementById('friends-modal').classList.remove('active');
+        }
+
+        // 🔥 NEW: Forgot password functions
+        function showForgotPasswordModal() {
+            document.getElementById('forgot-password-modal').classList.add('active');
+            document.getElementById('forgot-step-1').style.display = 'block';
+            document.getElementById('forgot-step-2').style.display = 'none';
+            document.getElementById('forgot-error').textContent = '';
+            document.getElementById('reset-code-sent').style.display = 'none';
+        }
+
+        function closeForgotPasswordModal() {
+            document.getElementById('forgot-password-modal').classList.remove('active');
+        }
+
+        async function sendResetCode() {
+            const username = document.getElementById('forgot-username').value.trim();
+            const errorDiv = document.getElementById('forgot-error');
+            
+            if (!username) {
+                errorDiv.textContent = language === 'en' ? 'Please enter username' : 'لطفاً نام کاربری را وارد کنید';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('forgot-step-1').style.display = 'none';
+                    document.getElementById('forgot-step-2').style.display = 'block';
+                    document.getElementById('reset-code-sent').style.display = 'block';
+                    errorDiv.textContent = '';
+                } else {
+                    errorDiv.textContent = data.error;
+                }
+            } catch (error) {
+                errorDiv.textContent = language === 'en' ? 'Failed to send code' : 'ارسال کد ناموفق بود';
+            }
+        }
+
+        async function resetPassword() {
+            const username = document.getElementById('forgot-username').value.trim();
+            const code = document.getElementById('reset-code').value.trim();
+            const newPassword = document.getElementById('new-password').value;
+            const errorDiv = document.getElementById('forgot-error');
+            
+            if (!code || !newPassword) {
+                errorDiv.textContent = language === 'en' ? 'All fields are required' : 'همه فیلدها الزامی هستند';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, code, newPassword })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(translations[language].passwordReset);
+                    closeForgotPasswordModal();
+                    document.getElementById('reset-code').value = '';
+                    document.getElementById('new-password').value = '';
+                } else {
+                    errorDiv.textContent = data.error;
+                }
+            } catch (error) {
+                errorDiv.textContent = language === 'en' ? 'Failed to reset password' : 'بازیابی رمز ناموفق بود';
+            }
+        }
+
+        // 🔥 NEW: Friend status update
+        socket.on('friend_status_update', ({ username, status }) => {
+            const friend = friendsList.find(f => f.username === username);
+            if (friend) {
+                friend.status = status;
+                renderFriendsList();
+            }
+        });
+
+        socket.on('friend_added', ({ username }) => {
+            loadFriends();
+        });
+
         window.addEventListener('load', async () => {
             const savedUser = localStorage.getItem('currentUser');
             if (savedUser) {
@@ -1768,11 +2490,20 @@
                 try {
                     await loadUserData();
                     showScreen('main');
+                    
+                    // 🔥 NEW: Notify server about login
+                    socket.emit('user_logged_in', { username: savedUser });
                 } catch (error) {
                     localStorage.removeItem('currentUser');
                     showScreen('auth');
                 }
             } else {
+                // 🔥 NEW: Check remembered user
+                const rememberedUser = localStorage.getItem('rememberedUser');
+                if (rememberedUser) {
+                    document.getElementById('login-username').value = rememberedUser;
+                    document.getElementById('remember-me').checked = true;
+                }
                 showScreen('auth');
             }
         });
