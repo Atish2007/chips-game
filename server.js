@@ -5,6 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors());
@@ -22,6 +23,12 @@ const io = new Server(server, {
 const rooms = {};
 const RECONNECT_TIMEOUT = 30000;
 const USERS_FILE = path.join(__dirname, 'users.json');
+
+// 🔥 NEW: Connected users tracking
+const connectedUsers = {}; // username -> { socketId, status }
+
+// 🔥 NEW: Password reset tokens
+const passwordResetTokens = {}; // username -> { code, expiresAt, email }
 
 // ==================== DATABASE ====================
 
@@ -50,7 +57,7 @@ let users = loadUsers();
 // ==================== AUTH ENDPOINTS ====================
 
 app.post('/api/register', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, email } = req.body;
   
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });
@@ -77,7 +84,9 @@ app.post('/api/register', async (req, res) => {
       wins: 0,
       losses: 0,
       activeRoom: null,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      email: email || null,
+      friends: []
     };
     saveUsers(users);
     
@@ -119,7 +128,8 @@ app.post('/api/login', async (req, res) => {
       success: true, 
       username: normalizedUsername,
       stats: { wins: user.wins, losses: user.losses },
-      activeRoom: user.activeRoom
+      activeRoom: user.activeRoom,
+      email: user.email || null
     });
   } catch (error) {
     console.error('[Auth] خطا در لاگین:', error);
@@ -144,7 +154,8 @@ app.get('/api/user/:username', (req, res) => {
   res.json({
     username: normalizedUsername,
     stats: { wins: user.wins, losses: user.losses },
-    activeRoom: user.activeRoom
+    activeRoom: user.activeRoom,
+    email: user.email || null
   });
 });
 
@@ -164,6 +175,227 @@ app.post('/api/clear-active-room', (req, res) => {
   }
   res.json({ success: true });
 });
+
+// 🔥 NEW: Update email
+app.post('/api/update-email', (req, res) => {
+  const { username, email } = req.body;
+  if (!username || !email) {
+    return res.status(400).json({ error: 'Username and email are required' });
+  }
+  
+  const normalizedUsername = username.toLowerCase();
+  if (!users[normalizedUsername]) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  users[normalizedUsername].email = email.toLowerCase();
+  saveUsers(users);
+  
+  console.log(`[Email] ایمیل برای ${normalizedUsername} ذخیره شد: ${email}`);
+  res.json({ success: true });
+});
+
+// 🔥 NEW: Add friend
+app.post('/api/add-friend', (req, res) => {
+  const { username, friendUsername } = req.body;
+  if (!username || !friendUsername) {
+    return res.status(400).json({ error: 'Username and friendUsername are required' });
+  }
+  
+  const normalizedUsername = username.toLowerCase();
+  const normalizedFriend = friendUsername.toLowerCase();
+  
+  if (normalizedUsername === normalizedFriend) {
+    return res.status(400).json({ error: 'Cannot add yourself as friend' });
+  }
+  
+  if (!users[normalizedUsername] || !users[normalizedFriend]) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  if (!users[normalizedUsername].friends) {
+    users[normalizedUsername].friends = [];
+  }
+  
+  if (users[normalizedUsername].friends.includes(normalizedFriend)) {
+    return res.status(400).json({ error: 'Already friends' });
+  }
+  
+  if (users[normalizedUsername].friends.length >= 50) {
+    return res.status(400).json({ error: 'Friend list is full (max 50)' });
+  }
+  
+  users[normalizedUsername].friends.push(normalizedFriend);
+  
+  if (!users[normalizedFriend].friends) {
+    users[normalizedFriend].friends = [];
+  }
+  users[normalizedFriend].friends.push(normalizedUsername);
+  
+  saveUsers(users);
+  
+  // اگر دوست آنلاین بود، اطلاع بده
+  if (connectedUsers[normalizedFriend]) {
+    io.to(connectedUsers[normalizedFriend].socketId).emit('friend_added', { username: normalizedUsername });
+  }
+  
+  console.log(`[Friends] ${normalizedUsername} و ${normalizedFriend} دوست شدند.`);
+  res.json({ success: true });
+});
+
+// 🔥 NEW: Remove friend
+app.post('/api/remove-friend', (req, res) => {
+  const { username, friendUsername } = req.body;
+  if (!username || !friendUsername) {
+    return res.status(400).json({ error: 'Username and friendUsername are required' });
+  }
+  
+  const normalizedUsername = username.toLowerCase();
+  const normalizedFriend = friendUsername.toLowerCase();
+  
+  if (users[normalizedUsername]) {
+    users[normalizedUsername].friends = (users[normalizedUsername].friends || []).filter(f => f !== normalizedFriend);
+  }
+  if (users[normalizedFriend]) {
+    users[normalizedFriend].friends = (users[normalizedFriend].friends || []).filter(f => f !== normalizedUsername);
+  }
+  
+  saveUsers(users);
+  
+  console.log(`[Friends] ${normalizedUsername} و ${normalizedFriend} از دوستی خارج شدند.`);
+  res.json({ success: true });
+});
+
+// 🔥 NEW: Get friends list
+app.get('/api/friends/:username', (req, res) => {
+  const { username } = req.params;
+  const normalizedUsername = username.toLowerCase();
+  const user = users[normalizedUsername];
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  const friends = (user.friends || []).map(f => {
+    const status = connectedUsers[f] ? connectedUsers[f].status : 'offline';
+    return { username: f, status };
+  });
+  
+  res.json({ friends });
+});
+
+// 🔥 NEW: Forgot password - send reset code
+app.post('/api/forgot-password', async (req, res) => {
+  const { username } = req.body;
+  if (!username) {
+    return res.status(400).json({ error: 'Username is required' });
+  }
+  
+  const normalizedUsername = username.toLowerCase();
+  const user = users[normalizedUsername];
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  if (!user.email) {
+    return res.status(400).json({ error: 'No email registered for this account' });
+  }
+  
+  const code = generateResetCode();
+  passwordResetTokens[normalizedUsername] = {
+    code,
+    expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+    email: user.email
+  };
+  
+  try {
+    await sendResetEmail(user.email, code, normalizedUsername);
+    console.log(`[Email] کد ریست برای ${normalizedUsername} ارسال شد به ${user.email}`);
+    res.json({ success: true, message: 'Reset code sent to your email' });
+  } catch (error) {
+    console.error('[Email] خطا در ارسال ایمیل:', error);
+    res.status(500).json({ error: 'Failed to send email. Please check server configuration.' });
+  }
+});
+
+// 🔥 NEW: Reset password with code
+app.post('/api/reset-password', async (req, res) => {
+  const { username, code, newPassword } = req.body;
+  if (!username || !code || !newPassword) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+  
+  const normalizedUsername = username.toLowerCase();
+  const token = passwordResetTokens[normalizedUsername];
+  
+  if (!token) {
+    return res.status(400).json({ error: 'Invalid or expired code. Please request a new one.' });
+  }
+  
+  if (Date.now() > token.expiresAt) {
+    delete passwordResetTokens[normalizedUsername];
+    return res.status(400).json({ error: 'Code expired. Please request a new one.' });
+  }
+  
+  if (token.code !== code) {
+    return res.status(400).json({ error: 'Invalid code' });
+  }
+  
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+  
+  try {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    users[normalizedUsername].password = hashedPassword;
+    saveUsers(users);
+    
+    delete passwordResetTokens[normalizedUsername];
+    
+    console.log(`[Auth] رمز عبور ${normalizedUsername} با موفقیت تغییر کرد.`);
+    res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('[Auth] خطا در تغییر رمز:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+function generateResetCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function sendResetEmail(email, code, username) {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    throw new Error('Gmail credentials not configured in environment variables');
+  }
+  
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD
+    }
+  });
+  
+  await transporter.sendMail({
+    from: `"Chips Game" <${process.env.GMAIL_USER}>`,
+    to: email,
+    subject: ' Password Reset Code - Chips Game',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #667eea;">Chips Game - Password Reset</h2>
+        <p>Hello <strong>${username}</strong>,</p>
+        <p>Your password reset code is:</p>
+        <div style="background: #f0f0f0; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; margin: 20px 0; border-radius: 10px;">
+          ${code}
+        </div>
+        <p>This code will expire in <strong>10 minutes</strong>.</p>
+        <p style="color: #888; font-size: 12px;">If you didn't request this, please ignore this email.</p>
+      </div>
+    `
+  });
+}
 
 // ==================== SOCKET.IO HELPERS ====================
 
@@ -193,10 +425,82 @@ function emitToRoom(room, event, data) {
   });
 }
 
+function updateFriendStatus(username, status) {
+  if (connectedUsers[username]) {
+    connectedUsers[username].status = status;
+    
+    const user = users[username];
+    if (user && user.friends) {
+      user.friends.forEach(friend => {
+        if (connectedUsers[friend]) {
+          io.to(connectedUsers[friend].socketId).emit('friend_status_update', { 
+            username, 
+            status 
+          });
+        }
+      });
+    }
+  }
+}
+
 // ==================== SOCKET.IO MAIN ====================
 
 io.on('connection', (socket) => {
   console.log(`[+] کاربر متصل شد: ${socket.id}`);
+
+  // 🔥 NEW: User logged in notification
+  socket.on('user_logged_in', ({ username }) => {
+    connectedUsers[username] = { socketId: socket.id, status: 'main' };
+    socket.username = username;
+    
+    const user = users[username];
+    if (user && user.friends) {
+      user.friends.forEach(friend => {
+        if (connectedUsers[friend]) {
+          io.to(connectedUsers[friend].socketId).emit('friend_status_update', { 
+            username, 
+            status: 'main' 
+          });
+        }
+      });
+    }
+    
+    console.log(`[Friends] ${username} آنلاین شد (Main Screen)`);
+  });
+
+  // 🔥 NEW: Chip preview
+  socket.on('chip_preview', ({ chipIndex }) => {
+    const room = rooms[socket.roomCode];
+    if (!room || room.state !== 'PLAYING') return;
+    
+    const opponent = room.players.find(p => p.id !== socket.id);
+    if (opponent) {
+      io.to(opponent.id).emit('opponent_chip_preview', { chipIndex, playerId: socket.id });
+    }
+  });
+
+  // 🔥 NEW: Chip preview cleared
+  socket.on('chip_preview_cleared', () => {
+    const room = rooms[socket.roomCode];
+    if (!room) return;
+    
+    const opponent = room.players.find(p => p.id !== socket.id);
+    if (opponent) {
+      io.to(opponent.id).emit('opponent_chip_preview_cleared', { playerId: socket.id });
+    }
+  });
+
+  // 🔥 NEW: Invite friend
+  socket.on('invite_friend', ({ friendUsername }) => {
+    const normalizedFriend = friendUsername.toLowerCase();
+    if (connectedUsers[normalizedFriend]) {
+      io.to(connectedUsers[normalizedFriend].socketId).emit('friend_invite', { 
+        from: socket.username, 
+        roomCode: socket.roomCode 
+      });
+      console.log(`[Invite] ${socket.username} دعوت فرستاد به ${normalizedFriend} برای لابی ${socket.roomCode}`);
+    }
+  });
 
   // ==================== RECONNECT ====================
   socket.on('reconnect_to_game', ({ roomCode, username }) => {
@@ -327,6 +631,8 @@ io.on('connection', (socket) => {
       saveUsers(users);
     }
     
+    updateFriendStatus(username, 'room');
+    
     console.log(`[Room] لابی ${roomCode} توسط ${username} ساخته شد.`);
     socket.emit('room_created', { roomCode, playerIndex: 0, owner: username });
     
@@ -389,6 +695,8 @@ io.on('connection', (socket) => {
       users[username].activeRoom = roomCode;
       saveUsers(users);
     }
+
+    updateFriendStatus(username, 'room');
 
     console.log(`[Room] ${username} به لابی ${roomCode} جوین شد.`);
     
@@ -592,7 +900,8 @@ io.on('connection', (socket) => {
     
     socket.roomCode = null;
     socket.playerIndex = -1;
-    socket.username = null;
+    
+    updateFriendStatus(socket.username, 'main');
     
     if (room.players.length === 0) {
       delete rooms[room.code];
@@ -667,6 +976,21 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log(`[-] کاربر قطع شد: ${socket.id}`);
     
+    if (socket.username) {
+      const user = users[socket.username];
+      if (user && user.friends) {
+        user.friends.forEach(friend => {
+          if (connectedUsers[friend]) {
+            io.to(connectedUsers[friend].socketId).emit('friend_status_update', { 
+              username: socket.username, 
+              status: 'offline' 
+            });
+          }
+        });
+      }
+      delete connectedUsers[socket.username];
+    }
+    
     if (!socket.roomCode || !rooms[socket.roomCode]) return;
     
     const room = rooms[socket.roomCode];
@@ -676,7 +1000,6 @@ io.on('connection', (socket) => {
     
     console.log(`[Disconnect] ${player.username} از لابی ${room.code} قطع شد. State: ${room.state}`);
     
-    // 🔥 در LOBBY: فقط حذف کن
     if (room.state === 'LOBBY') {
       const playerIndex = room.players.findIndex(p => p.id === socket.id);
       if (playerIndex !== -1) {
@@ -702,13 +1025,10 @@ io.on('connection', (socket) => {
       return;
     }
     
-    // 🔥 در state های دیگه (بازی در جریان)
     if (room.state !== 'GAME_OVER') {
-      // 🔥 FIX: اگر در POISON_PHASE هست، تایمر پویزن رو pause کن
       if (room.state === 'POISON_PHASE') {
         room.poisonPaused = true;
         room.poisonPausedAt = Date.now();
-        // ارسال pause به پلیر متصل
         socket.to(room.code).emit('pause_poison_timer');
       }
       
@@ -716,14 +1036,11 @@ io.on('connection', (socket) => {
         socket.to(room.code).emit('pause_coin_timer');
       }
       
-      // 🔥 FIX: ارسال تایمر disconnect به **هر دو پلیر**
-      // 1. به پلیر متصل (از طریق room)
       socket.to(room.code).emit('start_disconnect_timer', { 
         disconnectedUsername: player.username,
         timeout: RECONNECT_TIMEOUT / 1000
       });
       
-      // 2. به پلیر disconnect شده (مستقیم به socket)
       socket.emit('start_disconnect_timer', { 
         disconnectedUsername: player.username,
         timeout: RECONNECT_TIMEOUT / 1000,
@@ -733,7 +1050,6 @@ io.on('connection', (socket) => {
       room.reconnectTimeout = setTimeout(() => {
         const opponent = room.players.find(p => p.id !== socket.id);
         
-        // 🔥 FIX: در هر فازی که بود، حریف برنده می‌شه
         if (opponent) {
           io.to(room.code).emit('opponent_lost', { 
             message: `${player.username} قطع شد و برنگشت. شما برنده شدید!` 
@@ -754,7 +1070,6 @@ io.on('connection', (socket) => {
         delete rooms[socket.roomCode];
       }, RECONNECT_TIMEOUT);
     } else {
-      // 🔥 در GAME_OVER
       socket.to(room.code).emit('opponent_disconnected', { 
         username: player.username,
         timeout: 0
