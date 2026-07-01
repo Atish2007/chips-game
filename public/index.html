@@ -88,7 +88,27 @@ function startPoisonPhase(duration){clearPoisonTimer();showScreen('poison');cons
 function submitPoisons(){if(selectedPoisons.length!==3)return alert('Select 3');clearPoisonTimer();socket.emit('submit_poisons',{poisonedChips:selectedPoisons});showScreen('coin')}
 function playAgain(){socket.emit('play_again')}
 
-function startGameUI(){myHealth=3;opponentHealth=3;updateHealth();updateOpponentHealth();showScreen('game');const cd=document.getElementById('game-chips');cd.innerHTML='';selectedChipIndex=null;updateEatButton();for(let i=0;i<9;i++){const chip=document.createElement('div');chip.className='chip';chip.textContent=i+1;chip.onclick=()=>{if(isMyTurn&&!chip.classList.contains('eaten')&&!chip.classList.contains('disabled'))selectChip(i)};cd.appendChild(chip)}updateTurnUI()}
+function startGameUI(){
+  myHealth=3;
+  opponentHealth=3;
+  updateHealth();
+  updateOpponentHealth();
+  showScreen('game');
+  const cd=document.getElementById('game-chips');
+  cd.innerHTML='';
+  selectedChipIndex=null;
+  updateEatButton();
+  for(let i=0;i<9;i++){
+    const chip=document.createElement('div');
+    chip.className='chip';
+    chip.textContent=i+1;
+    chip.onclick=()=>{
+      if(isMyTurn&&!chip.classList.contains('eaten')&&!chip.classList.contains('disabled'))selectChip(i);
+    };
+    cd.appendChild(chip);
+  }
+  updateTurnUI();
+}
 function selectChip(ci){const cd=document.getElementById('game-chips'),ch=cd.children;for(let c of ch)c.classList.remove('selected');socket.emit('chip_preview_cleared');ch[ci].classList.add('selected');selectedChipIndex=ci;socket.emit('chip_preview',{chipIndex:ci});updateEatButton()}
 function updateEatButton(){const eb=document.getElementById('eat-button');if(eb)eb.disabled=!isMyTurn||selectedChipIndex===null}
 function confirmEat(){if(selectedChipIndex===null||!isMyTurn)return;const ci=selectedChipIndex;selectedChipIndex=null;socket.emit('chip_preview_cleared');const cd=document.getElementById('game-chips'),ch=cd.children;for(let c of ch)c.classList.remove('selected');updateEatButton();socket.emit('eat_chip',{chipIndex:ci})}
@@ -102,7 +122,38 @@ function hideDisconnectedOverlay(){isDisconnected=false;const ov=document.getEle
 socket.on('disconnect',r=>{console.log('[Socket] Disconnected:',r);if(roomCode&&currentUser)showDisconnectedOverlay(30)});
 socket.on('connect',()=>{console.log('[Socket] Connected:',socket.id);if(isDisconnected&&roomCode&&currentUser)socket.emit('reconnect_to_game',{roomCode,username:currentUser})});
 socket.on('reconnect_failed',async({message})=>{hideDisconnectedOverlay();try{await fetch('/api/clear-active-room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser})})}catch(e){}roomCode='';isOwner=false;roomOwner=null;await loadUserData();showScreen('main');alert(message)});
-socket.on('game_state_restored',state=>{hideDisconnectedOverlay();myHealth=state.myHealth||3;opponentHealth=state.opponentHealth||3;updateHealth();updateOpponentHealth();isMyTurn=state.currentTurnUsername===currentUser;isOwner=state.owner===currentUser;roomOwner=state.owner;if(state.state==='LOBBY'){showScreen('waiting');document.getElementById('display-room-code').textContent=state.roomCode;updatePlayersList(state.players,state.owner)}else if(state.state==='POISON_PHASE')startPoisonPhase(state.timeLeft||30);else if(state.state==='COIN_TOSS')showScreen('coin');else if(state.state==='PLAYING'){startGameUI();const cd=document.getElementById('game-chips');state.myEatenChips.forEach(idx=>{if(cd.children[idx])cd.children[idx].classList.add('eaten')});updateTurnUI()}else if(state.state==='GAME_OVER')showScreen('gameover')});
+socket.on('game_state_restored',state=>{
+  hideDisconnectedOverlay();
+  myHealth=state.myHealth||3;
+  opponentHealth=state.opponentHealth||3;
+  updateHealth();
+  updateOpponentHealth();
+  isMyTurn=state.currentTurnUsername===currentUser;
+  isOwner=state.owner===currentUser;
+  roomOwner=state.owner;
+  if(state.state==='LOBBY'){
+    showScreen('waiting');
+    document.getElementById('display-room-code').textContent=state.roomCode;
+    updatePlayersList(state.players,state.owner);
+  }else if(state.state==='POISON_PHASE'){
+    const timeLeft=state.timeLeft||30;
+    startPoisonPhase(timeLeft);
+  }else if(state.state==='COIN_TOSS'){
+    showScreen('coin');
+  }else if(state.state==='PLAYING'){
+    startGameUI();
+    const cd=document.getElementById('game-chips');
+    // 🔥 FIX: نمایش چیپس‌های خورده شده (مشترک)
+    if(state.eatenChips){
+      state.eatenChips.forEach(idx=>{
+        if(cd.children[idx])cd.children[idx].classList.add('eaten');
+      });
+    }
+    updateTurnUI();
+  }else if(state.state==='GAME_OVER'){
+    showScreen('gameover');
+  }
+});
 socket.on('room_created',({roomCode:code,owner})=>{roomCode=code;pendingJoinCode=null;isOwner=owner===currentUser;roomOwner=owner;document.getElementById('display-room-code').textContent=code;showScreen('waiting');updatePlayersList([{id:socket.id,username:currentUser,ready:false,isOwner:true,avatar:usersData.avatar}],owner)});
 socket.on('player_joined',({players,owner})=>{roomCode=pendingJoinCode||roomCode;pendingJoinCode=null;roomOwner=owner;isOwner=owner===currentUser;document.getElementById('display-room-code').textContent=roomCode;showScreen('waiting');updatePlayersList(players,owner)});
 socket.on('player_left',({username})=>console.log('[Left]',username));
@@ -113,8 +164,43 @@ socket.on('resume_poison_timer',({timeLeft})=>{if(currentScreen==='coin'||curren
 socket.on('pause_coin_timer',()=>{});
 socket.on('start_coin_toss',()=>{clearPoisonTimer();showScreen('coin');const c=document.getElementById('coin');c.textContent='?';c.style.animation='none';setTimeout(()=>c.style.animation='flip 3s ease-out',10)});
 socket.on('coin_toss_result',({firstPlayerId,firstPlayerName})=>{const c=document.getElementById('coin');c.textContent=firstPlayerName;document.getElementById('coin-result').textContent=firstPlayerName+' starts!';setTimeout(()=>{isMyTurn=firstPlayerName===currentUser;startGameUI()},2000)});
-socket.on('chip_eaten',({chipIndex,playerId,isPoisoned,message,health})=>{const cd=document.getElementById('game-chips'),ch=cd.children[chipIndex];if(ch)ch.classList.add('eaten');const md=document.getElementById('game-message');if(playerId===socket.id){md.textContent=message;md.className='message '+(isPoisoned?'poisoned':'safe');setTimeout(()=>{md.textContent='';md.className='message'},2000)}if(health){if(health[socket.id]!==undefined)myHealth=health[socket.id];const op=playersList.find(p=>p.id!==socket.id);if(op&&health[op.id]!==undefined)opponentHealth=health[op.id];updateHealth();updateOpponentHealth()}});
-socket.on('turn_changed',({nextPlayerId,health})=>{const np=playersList.find(p=>p.id===nextPlayerId);if(np)isMyTurn=np.username===currentUser;if(health){if(health[socket.id]!==undefined)myHealth=health[socket.id];if(health[nextPlayerId]!==undefined)opponentHealth=health[nextPlayerId];updateHealth();updateOpponentHealth()}updateTurnUI()});
+socket.on('chip_eaten',({chipIndex,playerId,isPoisoned,message,health,eatenChips})=>{
+  const cd=document.getElementById('game-chips');
+  const ch=cd.children[chipIndex];
+  if(ch)ch.classList.add('eaten');
+  const md=document.getElementById('game-message');
+  if(playerId===socket.id){
+    md.textContent=message;
+    md.className='message '+(isPoisoned?'poisoned':'safe');
+    setTimeout(()=>{md.textContent='';md.className='message'},2000);
+  }
+  // 🔥 FIX: آپدیت health بلافاصله
+  if(health){
+    if(health[socket.id]!==undefined)myHealth=health[socket.id];
+    const op=playersList.find(p=>p.id!==socket.id);
+    if(op&&health[op.id]!==undefined)opponentHealth=health[op.id];
+    updateHealth();
+    updateOpponentHealth();
+  }
+  // 🔥 FIX: آپدیت چیپس‌های خورده شده
+  if(eatenChips){
+    eatenChips.forEach(idx=>{
+      if(cd.children[idx])cd.children[idx].classList.add('eaten');
+    });
+  }
+});
+socket.on('turn_changed',({nextPlayerId,health})=>{
+  const np=playersList.find(p=>p.id===nextPlayerId);
+  if(np)isMyTurn=np.username===currentUser;
+  // 🔥 FIX: آپدیت health بلافاصله
+  if(health){
+    if(health[socket.id]!==undefined)myHealth=health[socket.id];
+    if(health[nextPlayerId]!==undefined)opponentHealth=health[nextPlayerId];
+    updateHealth();
+    updateOpponentHealth();
+  }
+  updateTurnUI();
+});
 socket.on('health_updated',(health)=>{if(health[socket.id]!==undefined)myHealth=health[socket.id];const op=playersList.find(p=>p.id!==socket.id);if(op&&health[op.id]!==undefined)opponentHealth=health[op.id];updateHealth();updateOpponentHealth()});
 socket.on('game_over',({winnerId,winnerName,loserId,loserName})=>{clearPoisonTimer();clearDisconnectTimer();showScreen('gameover');const iw=winnerName===currentUser,te=document.getElementById('gameover-title');te.textContent=iw?'You Win!':'You Lose!';te.classList.remove('win','lose');te.classList.add(iw?'win':'lose');document.getElementById('gameover-message').textContent=iw?'Defeated '+loserName+'!':winnerName+' defeated you!';document.getElementById('votes-display').textContent='';loadUserData()});
 socket.on('play_again_update',({votesCount})=>document.getElementById('votes-display').textContent=votesCount+'/2 ready');
