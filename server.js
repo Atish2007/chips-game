@@ -249,7 +249,7 @@ io.on('connection', (socket) => {
     if (!player) { if (users[username]) { users[username].activeRoom = null; saveUsers(users); } return socket.emit('reconnect_failed', { message: 'Not in this lobby' }); }
     const oldSocketId = player.id; player.id = socket.id;
     if (room.health[oldSocketId] !== undefined) { room.health[socket.id] = room.health[oldSocketId]; delete room.health[oldSocketId]; }
-    // 🔥 FIX: eatenChips مشترکه، نیازی به تغییر نیست
+    // 🔥 FIX: eatenChips مشترکه، فقط socket.id رو تغییر میدیم
     if (room.poisons[oldSocketId] !== undefined) { room.poisons[socket.id] = room.poisons[oldSocketId]; delete room.poisons[oldSocketId]; }
     if (room.currentTurn === oldSocketId) room.currentTurn = socket.id;
     socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = room.players.findIndex(p => p.id === socket.id); socket.username = username;
