@@ -249,7 +249,7 @@ io.on('connection', (socket) => {
     if (!player) { if (users[username]) { users[username].activeRoom = null; saveUsers(users); } return socket.emit('reconnect_failed', { message: 'Not in this lobby' }); }
     const oldSocketId = player.id; player.id = socket.id;
     if (room.health[oldSocketId] !== undefined) { room.health[socket.id] = room.health[oldSocketId]; delete room.health[oldSocketId]; }
-    if (room.eatenChips[oldSocketId] !== undefined) { room.eatenChips[socket.id] = room.eatenChips[oldSocketId]; delete room.eatenChips[oldSocketId]; } else { room.eatenChips[socket.id] = []; }
+    // 🔥 FIX: eatenChips مشترکه، نیازی به تغییر نیست
     if (room.poisons[oldSocketId] !== undefined) { room.poisons[socket.id] = room.poisons[oldSocketId]; delete room.poisons[oldSocketId]; }
     if (room.currentTurn === oldSocketId) room.currentTurn = socket.id;
     socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = room.players.findIndex(p => p.id === socket.id); socket.username = username;
@@ -270,10 +270,10 @@ io.on('connection', (socket) => {
     broadcastPlayersList(room);
     const currentTurnPlayer = room.players.find(p => p.id === room.currentTurn);
     const opponent = room.players.find(p => p.id !== socket.id);
-    socket.emit('game_state_restored', { state: room.state, players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, isOwner: p.username === room.owner, avatar: p.avatar })), owner: room.owner, myHealth: room.health[socket.id] || 3, opponentHealth: opponent ? (room.health[opponent.id] || 3) : 3, currentTurnUsername: currentTurnPlayer ? currentTurnPlayer.username : null, myEatenChips: room.eatenChips[socket.id] || [], roomCode: room.code, myUsername: username, timeLeft: restoredTimeLeft });
+    socket.emit('game_state_restored', { state: room.state, players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, isOwner: p.username === room.owner, avatar: p.avatar })), owner: room.owner, myHealth: room.health[socket.id] || 3, opponentHealth: opponent ? (room.health[opponent.id] || 3) : 3, currentTurnUsername: currentTurnPlayer ? currentTurnPlayer.username : null, eatenChips: room.eatenChips || [], roomCode: room.code, myUsername: username, timeLeft: restoredTimeLeft });
   });
 
-  socket.on('create_room', (username) => { if (users[username] && users[username].activeRoom) { users[username].activeRoom = null; saveUsers(users); } const roomCode = generateRoomCode(); rooms[roomCode] = { code: roomCode, owner: username, players: [{ id: socket.id, username, ready: false, avatar: users[username]?.avatar || null }], state: 'LOBBY', poisons: {}, health: {}, eatenChips: {}, currentTurn: null, timerInterval: null, playAgainVotes: {}, reconnectTimeout: null, poisonStartTime: null, poisonDuration: 30, poisonPaused: false, poisonPausedAt: null }; socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = 0; socket.username = username; if (users[username]) { users[username].activeRoom = roomCode; saveUsers(users); } updateFriendStatus(username, 'room'); console.log(`[Room] ${roomCode} by ${username}`); socket.emit('room_created', { roomCode, playerIndex: 0, owner: username }); broadcastPlayersList(rooms[roomCode]); });
+  socket.on('create_room', (username) => { if (users[username] && users[username].activeRoom) { users[username].activeRoom = null; saveUsers(users); } const roomCode = generateRoomCode(); rooms[roomCode] = { code: roomCode, owner: username, players: [{ id: socket.id, username, ready: false, avatar: users[username]?.avatar || null }], state: 'LOBBY', poisons: {}, health: {}, eatenChips: [], currentTurn: null, timerInterval: null, playAgainVotes: {}, reconnectTimeout: null, poisonStartTime: null, poisonDuration: 30, poisonPaused: false, poisonPausedAt: null }; socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = 0; socket.username = username; if (users[username]) { users[username].activeRoom = roomCode; saveUsers(users); } updateFriendStatus(username, 'room'); console.log(`[Room] ${roomCode} by ${username}`); socket.emit('room_created', { roomCode, playerIndex: 0, owner: username }); broadcastPlayersList(rooms[roomCode]); });
 
   socket.on('join_room', ({ roomCode, username }) => {
     const room = rooms[roomCode];
@@ -312,18 +312,31 @@ io.on('connection', (socket) => {
 
   socket.on('poison_time_up', () => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'POISON_PHASE') return; room.players.forEach(p => { if (!room.poisons[p.id]) { const allChips = [0, 1, 2, 3, 4, 5, 6, 7, 8]; const randomPoisons = []; for (let i = 0; i < 3; i++) { const randIndex = Math.floor(Math.random() * allChips.length); randomPoisons.push(allChips.splice(randIndex, 1)[0]); } room.poisons[p.id] = randomPoisons; } }); startCoinToss(room); });
 
-  function startCoinToss(room) { room.state = 'COIN_TOSS'; emitToRoom(room, 'start_coin_toss', {}); setTimeout(() => { if (!rooms[room.code]) return; const firstPlayerIndex = Math.random() < 0.5 ? 0 : 1; room.currentTurn = room.players[firstPlayerIndex].id; room.state = 'PLAYING'; room.health = {}; room.eatenChips = {}; room.poisonStartTime = null; room.players.forEach(p => { room.health[p.id] = 3; room.eatenChips[p.id] = []; }); emitToRoom(room, 'coin_toss_result', { firstPlayerId: room.currentTurn, firstPlayerName: room.players[firstPlayerIndex].username, firstPlayerIndex: firstPlayerIndex }); }, 3000); }
+  function startCoinToss(room) { room.state = 'COIN_TOSS'; emitToRoom(room, 'start_coin_toss', {}); setTimeout(() => { if (!rooms[room.code]) return; const firstPlayerIndex = Math.random() < 0.5 ? 0 : 1; room.currentTurn = room.players[firstPlayerIndex].id; room.state = 'PLAYING'; room.health = {}; room.eatenChips = []; room.poisonStartTime = null; room.players.forEach(p => { room.health[p.id] = 3; }); emitToRoom(room, 'coin_toss_result', { firstPlayerId: room.currentTurn, firstPlayerName: room.players[firstPlayerIndex].username, firstPlayerIndex: firstPlayerIndex }); }, 3000); }
 
   socket.on('eat_chip', ({ chipIndex }) => {
     const room = rooms[socket.roomCode];
     if (!room || room.state !== 'PLAYING' || room.currentTurn !== socket.id) return;
-    if (!room.eatenChips[socket.id]) room.eatenChips[socket.id] = [];
-    if (room.eatenChips[socket.id].includes(chipIndex)) return;
+    // 🔥 FIX: چک کردن چیپس خورده شده (مشترک)
+    if (room.eatenChips.includes(chipIndex)) return;
     const opponent = room.players.find(p => p.id !== socket.id);
     const opponentPoisons = room.poisons[opponent.id];
     const isPoisoned = opponentPoisons.includes(chipIndex);
-    room.eatenChips[socket.id].push(chipIndex);
-    emitToRoom(room, 'chip_eaten', { chipIndex, playerId: socket.id, isPoisoned, message: isPoisoned ? 'You Got Poisened!' : 'You Are Safe!', health: { [socket.id]: room.health[socket.id] - (isPoisoned ? 1 : 0), [opponent.id]: room.health[opponent.id] } });
+    // 🔥 FIX: اضافه کردن به آرایه مشترک
+    room.eatenChips.push(chipIndex);
+    // 🔥 FIX: ارسال health بلافاصله
+    const newHealth = {
+      [socket.id]: room.health[socket.id] - (isPoisoned ? 1 : 0),
+      [opponent.id]: room.health[opponent.id]
+    };
+    emitToRoom(room, 'chip_eaten', {
+      chipIndex,
+      playerId: socket.id,
+      isPoisoned,
+      message: isPoisoned ? 'You Got Poisened!' : 'You Are Safe!',
+      health: newHealth,
+      eatenChips: room.eatenChips
+    });
     if (isPoisoned) {
       room.health[socket.id]--;
       if (room.health[socket.id] <= 0) {
@@ -338,10 +351,17 @@ io.on('connection', (socket) => {
       }
     }
     room.currentTurn = opponent.id;
-    emitToRoom(room, 'turn_changed', { nextPlayerId: opponent.id, health: { [socket.id]: room.health[socket.id], [opponent.id]: room.health[opponent.id] } });
+    // 🔥 FIX: ارسال health در turn_changed
+    emitToRoom(room, 'turn_changed', {
+      nextPlayerId: opponent.id,
+      health: {
+        [socket.id]: room.health[socket.id],
+        [opponent.id]: room.health[opponent.id]
+      }
+    });
   });
 
-  socket.on('play_again', () => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'GAME_OVER') return; room.playAgainVotes[socket.id] = true; const votesCount = Object.keys(room.playAgainVotes).length; emitToRoom(room, 'play_again_update', { votesCount }); if (votesCount === 2) { room.state = 'POISON_PHASE'; room.poisons = {}; room.health = {}; room.eatenChips = {}; room.playAgainVotes = {}; room.currentTurn = null; room.poisonStartTime = Date.now(); room.poisonDuration = 30; room.players.forEach(p => { if (users[p.username]) users[p.username].activeRoom = room.code; }); saveUsers(users); emitToRoom(room, 'restart_game', {}); } });
+  socket.on('play_again', () => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'GAME_OVER') return; room.playAgainVotes[socket.id] = true; const votesCount = Object.keys(room.playAgainVotes).length; emitToRoom(room, 'play_again_update', { votesCount }); if (votesCount === 2) { room.state = 'POISON_PHASE'; room.poisons = {}; room.health = {}; room.eatenChips = []; room.playAgainVotes = {}; room.currentTurn = null; room.poisonStartTime = Date.now(); room.poisonDuration = 30; room.players.forEach(p => { if (users[p.username]) users[p.username].activeRoom = room.code; }); saveUsers(users); emitToRoom(room, 'restart_game', {}); } });
 
   socket.on('leave_room', () => { if (!socket.roomCode || !rooms[socket.roomCode] || !socket.username) return; const room = rooms[socket.roomCode]; const playerIndex = room.players.findIndex(p => p.id === socket.id); if (playerIndex === -1) return; const leavingPlayer = room.players[playerIndex]; console.log(`[Leave] ${leavingPlayer.username} from ${room.code}`); room.players.splice(playerIndex, 1); socket.leave(room.code); if (users[socket.username]) { users[socket.username].activeRoom = null; saveUsers(users); } socket.roomCode = null; socket.playerIndex = -1; updateFriendStatus(socket.username, 'main'); if (room.players.length === 0) { delete rooms[room.code]; } else { socket.to(room.code).emit('player_left', { username: leavingPlayer.username }); broadcastPlayersList(room); if (room.owner === leavingPlayer.username && room.players.length > 0) { room.owner = room.players[0].username; broadcastPlayersList(room); } } });
 
