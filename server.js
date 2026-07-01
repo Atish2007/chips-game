@@ -73,11 +73,10 @@ app.post('/api/register', async (req, res) => {
       if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
         const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
         await transporter.sendMail({ from: `"Chips Game" <${process.env.GMAIL_USER}>`, to: normalizedEmail, subject: 'Verify your email', html: `<div style="font-family:Arial;text-align:center"><h2>Welcome!</h2><p>Your verification code:</p><h1 style="color:#667eea">${code}</h1><p>Expires in 10 minutes.</p></div>` });
-        console.log(`[Email] Verification sent to ${normalizedEmail}`);
       }
     } catch (e) { console.error('[Email] Send error:', e.message); }
     res.json({ success: true, username: normalizedUsername });
-  } catch (error) { console.error('[Auth] Error:', error); res.status(500).json({ error: 'Registration failed' }); }
+  } catch (error) { res.status(500).json({ error: 'Registration failed' }); }
 });
 
 app.post('/api/verify-email', (req, res) => {
@@ -87,7 +86,6 @@ app.post('/api/verify-email', (req, res) => {
   if (!token || Date.now() > token.expiresAt || token.code !== code) return res.status(400).json({ error: 'Invalid or expired code' });
   if (users[normalizedUsername]) { users[normalizedUsername].emailVerified = true; saveUsers(users); }
   delete emailVerificationTokens[normalizedUsername];
-  console.log(`[Verify] Email verified for ${normalizedUsername}`);
   res.json({ success: true });
 });
 
@@ -102,7 +100,6 @@ app.post('/api/resend-verification', (req, res) => {
     if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
       const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
       transporter.sendMail({ from: `"Chips Game" <${process.env.GMAIL_USER}>`, to: users[normalizedUsername].email, subject: 'New verification code', html: `<div style="font-family:Arial;text-align:center"><h2>Your new code:</h2><h1 style="color:#667eea">${code}</h1><p>Expires in 10 minutes.</p></div>` });
-      console.log(`[Email] New code sent to ${users[normalizedUsername].email}`);
     }
   } catch (e) { console.error('[Email] Resend error:', e.message); }
   res.json({ success: true });
@@ -118,9 +115,8 @@ app.post('/api/login', async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) return res.status(401).json({ error: 'Invalid credentials' });
     if (user.activeRoom && !rooms[user.activeRoom]) { user.activeRoom = null; saveUsers(users); }
-    console.log(`[Auth] Login: ${normalizedUsername}`);
     res.json({ success: true, username: normalizedUsername, stats: { wins: user.wins, losses: user.losses }, activeRoom: user.activeRoom, email: user.email || null, emailVerified: user.emailVerified || false, avatar: user.avatar || null, language: user.language || 'en' });
-  } catch (error) { console.error('[Auth] Error:', error); res.status(500).json({ error: 'Login failed' }); }
+  } catch (error) { res.status(500).json({ error: 'Login failed' }); }
 });
 
 app.get('/api/user/:username', (req, res) => {
@@ -166,7 +162,6 @@ app.post('/api/send-friend-request', (req, res) => {
   users[normalizedFriend].friendRequests.push(normalizedUser);
   saveUsers(users);
   if (connectedUsers[normalizedFriend]) io.to(connectedUsers[normalizedFriend].socketId).emit('friend_request_received', { from: normalizedUser });
-  console.log(`[Friends] ${normalizedUser} -> ${normalizedFriend}`);
   res.json({ success: true });
 });
 
@@ -206,9 +201,8 @@ app.post('/api/forgot-password', async (req, res) => {
     if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) throw new Error('Email not configured');
     const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
     await transporter.sendMail({ from: `"Chips Game" <${process.env.GMAIL_USER}>`, to: user.email, subject: 'Password Reset Code', html: `<div style="font-family:Arial;text-align:center"><h2>Chips Game</h2><p>Your code:</p><h1 style="color:#f5576c">${code}</h1><p>Expires in 10 minutes.</p></div>` });
-    console.log(`[Email] Code sent to ${user.email}`);
     res.json({ success: true });
-  } catch (error) { console.error('[Email] Error:', error); res.status(500).json({ error: 'Failed to send email' }); }
+  } catch (error) { res.status(500).json({ error: 'Failed to send email' }); }
 });
 
 app.post('/api/reset-password', async (req, res) => {
@@ -222,9 +216,8 @@ app.post('/api/reset-password', async (req, res) => {
     users[normalizedUsername].password = await bcrypt.hash(newPassword, 10);
     saveUsers(users);
     delete passwordResetTokens[normalizedUsername];
-    console.log(`[Auth] Password reset: ${normalizedUsername}`);
     res.json({ success: true });
-  } catch (error) { console.error('[Auth] Error:', error); res.status(500).json({ error: 'Failed to reset' }); }
+  } catch (error) { res.status(500).json({ error: 'Failed to reset' }); }
 });
 
 function generateRoomCode() { return Math.random().toString(36).substring(2, 7).toUpperCase(); }
@@ -236,11 +229,11 @@ function updateFriendStatus(username, status) { if (connectedUsers[username]) { 
 io.on('connection', (socket) => {
   console.log(`[+] Connected: ${socket.id}`);
 
-  socket.on('user_logged_in', ({ username }) => { connectedUsers[username] = { socketId: socket.id, status: 'main' }; socket.username = username; const user = users[username]; if (user && user.friends) user.friends.forEach(friend => { if (connectedUsers[friend]) io.to(connectedUsers[friend].socketId).emit('friend_status_update', { username, status: 'main' }); }); console.log(`[Friends] ${username} online`); });
+  socket.on('user_logged_in', ({ username }) => { connectedUsers[username] = { socketId: socket.id, status: 'main' }; socket.username = username; const user = users[username]; if (user && user.friends) user.friends.forEach(friend => { if (connectedUsers[friend]) io.to(connectedUsers[friend].socketId).emit('friend_status_update', { username, status: 'main' }); }); });
 
   socket.on('chip_preview', ({ chipIndex }) => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'PLAYING') return; const opponent = room.players.find(p => p.id !== socket.id); if (opponent) io.to(opponent.id).emit('opponent_chip_preview', { chipIndex, playerId: socket.id }); });
   socket.on('chip_preview_cleared', () => { const room = rooms[socket.roomCode]; if (!room) return; const opponent = room.players.find(p => p.id !== socket.id); if (opponent) io.to(opponent.id).emit('opponent_chip_preview_cleared', { playerId: socket.id }); });
-  socket.on('invite_friend', ({ friendUsername }) => { const normalizedFriend = friendUsername.toLowerCase(); if (connectedUsers[normalizedFriend] && socket.roomCode) { io.to(connectedUsers[normalizedFriend].socketId).emit('friend_invite', { from: socket.username, roomCode: socket.roomCode }); console.log(`[Invite] ${socket.username} -> ${normalizedFriend}`); } });
+  socket.on('invite_friend', ({ friendUsername }) => { const normalizedFriend = friendUsername.toLowerCase(); if (connectedUsers[normalizedFriend] && socket.roomCode) { io.to(connectedUsers[normalizedFriend].socketId).emit('friend_invite', { from: socket.username, roomCode: socket.roomCode }); } });
 
   socket.on('reconnect_to_game', ({ roomCode, username }) => {
     const room = rooms[roomCode];
@@ -268,26 +261,35 @@ io.on('connection', (socket) => {
     broadcastPlayersList(room);
     const currentTurnPlayer = room.players.find(p => p.id === room.currentTurn);
     const opponent = room.players.find(p => p.id !== socket.id);
-    socket.emit('game_state_restored', { state: room.state, players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, isOwner: p.username === room.owner, avatar: p.avatar })), owner: room.owner, myHealth: room.health[socket.id] || 3, opponentHealth: opponent ? (room.health[opponent.id] || 3) : 3, currentTurnUsername: currentTurnPlayer ? currentTurnPlayer.username : null, eatenChips: room.eatenChips || [], roomCode: room.code, myUsername: username, timeLeft: restoredTimeLeft });
+    socket.emit('game_state_restored', { 
+      state: room.state, 
+      players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, isOwner: p.username === room.owner, avatar: p.avatar })), 
+      owner: room.owner, 
+      myHealth: room.health[socket.id] || 3, 
+      opponentHealth: opponent ? (room.health[opponent.id] || 3) : 3, 
+      currentTurnUsername: currentTurnPlayer ? currentTurnPlayer.username : null, 
+      myEatenChips: room.eatenChips[socket.id] || [], 
+      roomCode: room.code, 
+      myUsername: username, 
+      timeLeft: restoredTimeLeft 
+    });
   });
 
-  socket.on('create_room', (username) => {
-    if (users[username] && users[username].activeRoom) { users[username].activeRoom = null; saveUsers(users); }
-    const roomCode = generateRoomCode();
-    rooms[roomCode] = {
-      code: roomCode, owner: username,
-      players: [{ id: socket.id, username, ready: false, avatar: users[username]?.avatar || null }],
-      state: 'LOBBY', poisons: {}, health: {}, eatenChips: [], // 🔥 FIX: Shared Array
-      currentTurn: null, timerInterval: null, playAgainVotes: {},
-      reconnectTimeout: null, poisonStartTime: null, poisonDuration: 30,
-      poisonPaused: false, poisonPausedAt: null
-    };
-    socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = 0; socket.username = username;
-    if (users[username]) { users[username].activeRoom = roomCode; saveUsers(users); }
-    updateFriendStatus(username, 'room');
-    console.log(`[Room] ${roomCode} by ${username}`);
-    socket.emit('room_created', { roomCode, playerIndex: 0, owner: username });
-    broadcastPlayersList(rooms[roomCode]);
+  socket.on('create_room', (username) => { 
+    if (users[username] && users[username].activeRoom) { users[username].activeRoom = null; saveUsers(users); } 
+    const roomCode = generateRoomCode(); 
+    rooms[roomCode] = { 
+      code: roomCode, owner: username, 
+      players: [{ id: socket.id, username, ready: false, avatar: users[username]?.avatar || null }], 
+      state: 'LOBBY', poisons: {}, health: {}, 
+      eatenChips: {}, // 🔥 FIX: Object instead of Array
+      currentTurn: null, timerInterval: null, playAgainVotes: {}, reconnectTimeout: null, poisonStartTime: null, poisonDuration: 30, poisonPaused: false, poisonPausedAt: null 
+    }; 
+    socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = 0; socket.username = username; 
+    if (users[username]) { users[username].activeRoom = roomCode; saveUsers(users); } 
+    updateFriendStatus(username, 'room'); 
+    socket.emit('room_created', { roomCode, playerIndex: 0, owner: username }); 
+    broadcastPlayersList(rooms[roomCode]); 
   });
 
   socket.on('join_room', ({ roomCode, username }) => {
@@ -314,73 +316,58 @@ io.on('connection', (socket) => {
     socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = room.players.findIndex(p => p.id === socket.id); socket.username = username;
     if (users[username]) { users[username].activeRoom = roomCode; saveUsers(users); }
     updateFriendStatus(username, 'room');
-    console.log(`[Room] ${username} joined ${roomCode}`);
     emitToRoom(room, 'player_joined', { players: room.players.map(p => ({ id: p.id, username: p.username, avatar: p.avatar })), owner: room.owner });
     broadcastPlayersList(room);
   });
 
   socket.on('player_ready', () => { const room = rooms[socket.roomCode]; if (!room) return; const player = room.players.find(p => p.id === socket.id); if (player) player.ready = !player.ready; broadcastPlayersList(room); });
-
-  socket.on('start_game', () => {
-    const room = rooms[socket.roomCode];
-    if (!room) return;
-    if (room.owner !== socket.username) return socket.emit('error', { message: 'Only owner can start' });
-    if (room.players.length !== 2 || !room.players.every(p => p.ready)) return socket.emit('error', { message: 'Both players must be ready' });
-    room.state = 'POISON_PHASE'; room.poisonStartTime = Date.now(); room.poisonDuration = 30; room.poisons = {}; room.poisonPaused = false; room.poisonPausedAt = null;
-    console.log(`[Game] ${room.owner} started`);
-    emitToRoom(room, 'start_poison_phase', { duration: 30 });
-  });
-
+  socket.on('start_game', () => { const room = rooms[socket.roomCode]; if (!room) return; if (room.owner !== socket.username) return socket.emit('error', { message: 'Only owner can start' }); if (room.players.length !== 2 || !room.players.every(p => p.ready)) return socket.emit('error', { message: 'Both players must be ready' }); room.state = 'POISON_PHASE'; room.poisonStartTime = Date.now(); room.poisonDuration = 30; room.poisons = {}; room.poisonPaused = false; room.poisonPausedAt = null; emitToRoom(room, 'start_poison_phase', { duration: 30 }); });
   socket.on('submit_poisons', ({ poisonedChips }) => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'POISON_PHASE') return; room.poisons[socket.id] = poisonedChips; if (Object.keys(room.poisons).length === 2) startCoinToss(room); });
+  socket.on('poison_time_up', () => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'POISON_PHASE') return; room.players.forEach(p => { if (!room.poisons[p.id]) { const allChips = [0, 1, 2, 3, 4, 5, 6, 7, 8]; const randomPoisons = []; for (let i = 0; i < 3; i++) { const randIndex = Math.floor(Math.random() * allChips.length); randomPoisons.push(allChips.splice(randIndex, 1)[0]); } room.poisons[p.id] = randomPoisons; } }); startCoinToss(room); });
 
-  socket.on('poison_time_up', () => {
-    const room = rooms[socket.roomCode];
-    if (!room || room.state !== 'POISON_PHASE') return;
-    room.players.forEach(p => {
-      if (!room.poisons[p.id]) {
-        const allChips = [0, 1, 2, 3, 4, 5, 6, 7, 8]; const randomPoisons = [];
-        for (let i = 0; i < 3; i++) { const randIndex = Math.floor(Math.random() * allChips.length); randomPoisons.push(allChips.splice(randIndex, 1)[0]); }
-        room.poisons[p.id] = randomPoisons;
-      }
-    });
-    startCoinToss(room);
-  });
-
-  function startCoinToss(room) {
-    room.state = 'COIN_TOSS'; emitToRoom(room, 'start_coin_toss', {});
-    setTimeout(() => {
-      if (!rooms[room.code]) return;
-      const firstPlayerIndex = Math.random() < 0.5 ? 0 : 1;
-      room.currentTurn = room.players[firstPlayerIndex].id; room.state = 'PLAYING';
-      room.health = {}; room.eatenChips = []; room.poisonStartTime = null;
-      room.players.forEach(p => { room.health[p.id] = 3; });
-      emitToRoom(room, 'coin_toss_result', { firstPlayerId: room.currentTurn, firstPlayerName: room.players[firstPlayerIndex].username, firstPlayerIndex: firstPlayerIndex });
-    }, 3000);
+  function startCoinToss(room) { 
+    room.state = 'COIN_TOSS'; 
+    emitToRoom(room, 'start_coin_toss', {}); 
+    setTimeout(() => { 
+      if (!rooms[room.code]) return; 
+      const firstPlayerIndex = Math.random() < 0.5 ? 0 : 1; 
+      room.currentTurn = room.players[firstPlayerIndex].id; 
+      room.state = 'PLAYING'; 
+      room.health = {}; 
+      room.eatenChips = {}; // 🔥 FIX: Object
+      room.poisonStartTime = null; 
+      room.players.forEach(p => { room.health[p.id] = 3; }); 
+      emitToRoom(room, 'coin_toss_result', { firstPlayerId: room.currentTurn, firstPlayerName: room.players[firstPlayerIndex].username, firstPlayerIndex: firstPlayerIndex }); 
+    }, 3000); 
   }
 
   socket.on('eat_chip', ({ chipIndex }) => {
     const room = rooms[socket.roomCode];
     if (!room || room.state !== 'PLAYING' || room.currentTurn !== socket.id) return;
-    //  FIX 1: Check shared array
-    if (room.eatenChips.includes(chipIndex)) return;
+    
+    // 🔥 FIX: Per-player eaten chips
+    if (!room.eatenChips[socket.id]) room.eatenChips[socket.id] = [];
+    if (room.eatenChips[socket.id].includes(chipIndex)) return;
     
     const opponent = room.players.find(p => p.id !== socket.id);
     const opponentPoisons = room.poisons[opponent.id];
     const isPoisoned = opponentPoisons.includes(chipIndex);
     
-    room.eatenChips.push(chipIndex); // 🔥 FIX 1: Push to shared array
+    room.eatenChips[socket.id].push(chipIndex);
     
-    // 🔥 FIX 2: Calculate & send health immediately
+    // 🔥 FIX: Send health immediately
     const healthUpdate = {
       [socket.id]: room.health[socket.id] - (isPoisoned ? 1 : 0),
       [opponent.id]: room.health[opponent.id]
     };
 
     emitToRoom(room, 'chip_eaten', {
-      chipIndex, playerId: socket.id, isPoisoned,
+      chipIndex,
+      playerId: socket.id,
+      isPoisoned,
       message: isPoisoned ? 'You Got Poisened!' : 'You Are Safe!',
       health: healthUpdate,
-      eatenChips: room.eatenChips
+      myEatenChips: room.eatenChips[socket.id] // Send back my eaten chips
     });
 
     if (isPoisoned) {
@@ -396,103 +383,40 @@ io.on('connection', (socket) => {
         return;
       }
     }
+
     room.currentTurn = opponent.id;
-    // 🔥 FIX 2: Send health on turn change too
-    emitToRoom(room, 'turn_changed', {
-      nextPlayerId: opponent.id,
-      health: { [socket.id]: room.health[socket.id], [opponent.id]: room.health[opponent.id] }
+    emitToRoom(room, 'turn_changed', { 
+      nextPlayerId: opponent.id, 
+      health: { [socket.id]: room.health[socket.id], [opponent.id]: room.health[opponent.id] } 
     });
   });
 
-  socket.on('play_again', () => {
-    const room = rooms[socket.roomCode];
-    if (!room || room.state !== 'GAME_OVER') return;
-    room.playAgainVotes[socket.id] = true;
-    const votesCount = Object.keys(room.playAgainVotes).length;
-    emitToRoom(room, 'play_again_update', { votesCount });
-    if (votesCount === 2) {
-      room.state = 'POISON_PHASE'; room.poisons = {}; room.health = {}; room.eatenChips = []; room.playAgainVotes = {}; room.currentTurn = null;
-      room.poisonStartTime = Date.now(); room.poisonDuration = 30;
-      room.players.forEach(p => { if (users[p.username]) users[p.username].activeRoom = room.code; });
-      saveUsers(users);
-      emitToRoom(room, 'restart_game', {});
-    }
+  socket.on('play_again', () => { 
+    const room = rooms[socket.roomCode]; 
+    if (!room || room.state !== 'GAME_OVER') return; 
+    room.playAgainVotes[socket.id] = true; 
+    const votesCount = Object.keys(room.playAgainVotes).length; 
+    emitToRoom(room, 'play_again_update', { votesCount }); 
+    if (votesCount === 2) { 
+      room.state = 'POISON_PHASE'; 
+      room.poisons = {}; 
+      room.health = {}; 
+      room.eatenChips = {}; // 🔥 FIX: Object
+      room.playAgainVotes = {}; 
+      room.currentTurn = null; 
+      room.poisonStartTime = Date.now(); 
+      room.poisonDuration = 30; 
+      room.players.forEach(p => { if (users[p.username]) users[p.username].activeRoom = room.code; }); 
+      saveUsers(users); 
+      emitToRoom(room, 'restart_game', {}); 
+    } 
   });
 
-  socket.on('leave_room', () => {
-    if (!socket.roomCode || !rooms[socket.roomCode] || !socket.username) return;
-    const room = rooms[socket.roomCode];
-    const playerIndex = room.players.findIndex(p => p.id === socket.id);
-    if (playerIndex === -1) return;
-    const leavingPlayer = room.players[playerIndex];
-    room.players.splice(playerIndex, 1); socket.leave(room.code);
-    if (users[socket.username]) { users[socket.username].activeRoom = null; saveUsers(users); }
-    socket.roomCode = null; socket.playerIndex = -1;
-    updateFriendStatus(socket.username, 'main');
-    if (room.players.length === 0) { delete rooms[room.code]; }
-    else { socket.to(room.code).emit('player_left', { username: leavingPlayer.username }); broadcastPlayersList(room); if (room.owner === leavingPlayer.username && room.players.length > 0) { room.owner = room.players[0].username; broadcastPlayersList(room); } }
-  });
-
-  socket.on('abandon_match', () => {
-    if (socket.username && users[socket.username]) {
-      const oldRoom = users[socket.username].activeRoom;
-      users[socket.username].activeRoom = null; users[socket.username].losses++; saveUsers(users);
-      if (oldRoom && rooms[oldRoom]) {
-        const room = rooms[oldRoom]; const opponent = room.players.find(p => p.username !== socket.username);
-        if (opponent) {
-          if (users[opponent.username]) { users[opponent.username].wins++; users[opponent.username].activeRoom = null; saveUsers(users); }
-          io.to(oldRoom).emit('opponent_abandoned', { username: socket.username, message: `${socket.username} abandoned. You win!` });
-          room.state = 'GAME_OVER';
-        }
-      }
-      socket.emit('match_abandoned', { success: true });
-    }
-  });
-
-  socket.on('abandon_match_during_game', () => {
-    const room = rooms[socket.roomCode];
-    if (!room || room.state !== 'PLAYING') return;
-    const player = room.players.find(p => p.id === socket.id); if (!player) return;
-    if (users[player.username]) { users[player.username].losses++; users[player.username].activeRoom = null; saveUsers(users); }
-    const opponent = room.players.find(p => p.id !== socket.id);
-    if (opponent) {
-      if (users[opponent.username]) { users[opponent.username].wins++; users[opponent.username].activeRoom = null; saveUsers(users); }
-      emitToRoom(room, 'game_over', { winnerId: opponent.id, winnerName: opponent.username, loserId: socket.id, loserName: player.username });
-    }
-    room.state = 'GAME_OVER';
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`[-] Disconnected: ${socket.id}`);
-    if (socket.username) { const user = users[socket.username]; if (user && user.friends) user.friends.forEach(friend => { if (connectedUsers[friend]) io.to(connectedUsers[friend].socketId).emit('friend_status_update', { username: socket.username, status: 'offline' }); }); delete connectedUsers[socket.username]; }
-    if (!socket.roomCode || !rooms[socket.roomCode]) return;
-    const room = rooms[socket.roomCode]; const player = room.players.find(p => p.id === socket.id); if (!player) return;
-    if (room.state === 'LOBBY') {
-      const playerIndex = room.players.findIndex(p => p.id === socket.id);
-      if (playerIndex !== -1) room.players.splice(playerIndex, 1);
-      if (users[player.username]) { users[player.username].activeRoom = null; saveUsers(users); }
-      if (room.players.length === 0) { delete rooms[socket.roomCode]; }
-      else { socket.to(room.code).emit('player_left', { username: player.username }); broadcastPlayersList(room); if (room.owner === player.username && room.players.length > 0) { room.owner = room.players[0].username; broadcastPlayersList(room); } }
-      return;
-    }
-    if (room.state !== 'GAME_OVER') {
-      if (room.state === 'POISON_PHASE') { room.poisonPaused = true; room.poisonPausedAt = Date.now(); socket.to(room.code).emit('pause_poison_timer'); }
-      if (room.state === 'COIN_TOSS') socket.to(room.code).emit('pause_coin_timer');
-      socket.to(room.code).emit('start_disconnect_timer', { disconnectedUsername: player.username, timeout: RECONNECT_TIMEOUT / 1000 });
-      socket.emit('start_disconnect_timer', { disconnectedUsername: player.username, timeout: RECONNECT_TIMEOUT / 1000, isYou: true });
-      room.reconnectTimeout = setTimeout(() => {
-        const opponent = room.players.find(p => p.id !== socket.id);
-        if (opponent) { io.to(room.code).emit('opponent_lost', { message: `${player.username} disconnected. You win!` }); if (users[opponent.username]) { users[opponent.username].wins++; users[opponent.username].activeRoom = null; saveUsers(users); } }
-        if (users[player.username]) { users[player.username].losses++; users[player.username].activeRoom = null; saveUsers(users); }
-        delete rooms[socket.roomCode];
-      }, RECONNECT_TIMEOUT);
-    } else {
-      socket.to(room.code).emit('opponent_disconnected', { username: player.username, timeout: 0 });
-      if (users[player.username]) { users[player.username].activeRoom = null; saveUsers(users); }
-      delete rooms[socket.roomCode];
-    }
-  });
+  socket.on('leave_room', () => { if (!socket.roomCode || !rooms[socket.roomCode] || !socket.username) return; const room = rooms[socket.roomCode]; const playerIndex = room.players.findIndex(p => p.id === socket.id); if (playerIndex === -1) return; const leavingPlayer = room.players[playerIndex]; room.players.splice(playerIndex, 1); socket.leave(room.code); if (users[socket.username]) { users[socket.username].activeRoom = null; saveUsers(users); } socket.roomCode = null; socket.playerIndex = -1; updateFriendStatus(socket.username, 'main'); if (room.players.length === 0) { delete rooms[room.code]; } else { socket.to(room.code).emit('player_left', { username: leavingPlayer.username }); broadcastPlayersList(room); if (room.owner === leavingPlayer.username && room.players.length > 0) { room.owner = room.players[0].username; broadcastPlayersList(room); } } });
+  socket.on('abandon_match', () => { if (socket.username && users[socket.username]) { const oldRoom = users[socket.username].activeRoom; users[socket.username].activeRoom = null; users[socket.username].losses++; saveUsers(users); if (oldRoom && rooms[oldRoom]) { const room = rooms[oldRoom]; const opponent = room.players.find(p => p.username !== socket.username); if (opponent) { if (users[opponent.username]) { users[opponent.username].wins++; users[opponent.username].activeRoom = null; saveUsers(users); } io.to(oldRoom).emit('opponent_abandoned', { username: socket.username, message: `${socket.username} abandoned. You win!` }); room.state = 'GAME_OVER'; } } socket.emit('match_abandoned', { success: true }); } });
+  socket.on('abandon_match_during_game', () => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'PLAYING') return; const player = room.players.find(p => p.id === socket.id); if (!player) return; if (users[player.username]) { users[player.username].losses++; users[player.username].activeRoom = null; saveUsers(users); } const opponent = room.players.find(p => p.id !== socket.id); if (opponent) { if (users[opponent.username]) { users[opponent.username].wins++; users[opponent.username].activeRoom = null; saveUsers(users); } emitToRoom(room, 'game_over', { winnerId: opponent.id, winnerName: opponent.username, loserId: socket.id, loserName: player.username }); } room.state = 'GAME_OVER'; });
+  socket.on('disconnect', () => { if (socket.username) { const user = users[socket.username]; if (user && user.friends) user.friends.forEach(friend => { if (connectedUsers[friend]) io.to(connectedUsers[friend].socketId).emit('friend_status_update', { username: socket.username, status: 'offline' }); }); delete connectedUsers[socket.username]; } if (!socket.roomCode || !rooms[socket.roomCode]) return; const room = rooms[socket.roomCode]; const player = room.players.find(p => p.id === socket.id); if (!player) return; if (room.state === 'LOBBY') { const playerIndex = room.players.findIndex(p => p.id === socket.id); if (playerIndex !== -1) room.players.splice(playerIndex, 1); if (users[player.username]) { users[player.username].activeRoom = null; saveUsers(users); } if (room.players.length === 0) { delete rooms[socket.roomCode]; } else { socket.to(room.code).emit('player_left', { username: player.username }); broadcastPlayersList(room); if (room.owner === player.username && room.players.length > 0) { room.owner = room.players[0].username; broadcastPlayersList(room); } } return; } if (room.state !== 'GAME_OVER') { if (room.state === 'POISON_PHASE') { room.poisonPaused = true; room.poisonPausedAt = Date.now(); socket.to(room.code).emit('pause_poison_timer'); } if (room.state === 'COIN_TOSS') socket.to(room.code).emit('pause_coin_timer'); socket.to(room.code).emit('start_disconnect_timer', { disconnectedUsername: player.username, timeout: RECONNECT_TIMEOUT / 1000 }); socket.emit('start_disconnect_timer', { disconnectedUsername: player.username, timeout: RECONNECT_TIMEOUT / 1000, isYou: true }); room.reconnectTimeout = setTimeout(() => { const opponent = room.players.find(p => p.id !== socket.id); if (opponent) { io.to(room.code).emit('opponent_lost', { message: `${player.username} disconnected. You win!` }); if (users[opponent.username]) { users[opponent.username].wins++; users[opponent.username].activeRoom = null; saveUsers(users); } } if (users[player.username]) { users[player.username].losses++; users[player.username].activeRoom = null; saveUsers(users); } delete rooms[socket.roomCode]; }, RECONNECT_TIMEOUT); } else { socket.to(room.code).emit('opponent_disconnected', { username: player.username, timeout: 0 }); if (users[player.username]) { users[player.username].activeRoom = null; saveUsers(users); } delete rooms[socket.roomCode]; } });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => { console.log(`🚀 Server on port ${PORT}`); console.log(`📁 Users: ${USERS_FILE}`); });
+server.listen(PORT, '0.0.0.0', () => { console.log(`🚀 Server on port ${PORT}`); });
