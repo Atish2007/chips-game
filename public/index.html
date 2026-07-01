@@ -5,385 +5,117 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Chips Game</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;display:flex;justify-content:center;align-items:center;color:#fff}
-.container{background:rgba(255,255,255,.1);backdrop-filter:blur(10px);border-radius:20px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,.3);max-width:600px;width:90%}
-h1{text-align:center;margin-bottom:30px;font-size:2.5em}
-.screen{display:none}.screen.active{display:block}
-input{width:100%;padding:15px;margin:10px 0;border:none;border-radius:10px;background:rgba(255,255,255,.2);color:#fff;font-size:16px}
-input::placeholder{color:rgba(255,255,255,.7)}
-button{width:100%;padding:15px;margin:10px 0;border:none;border-radius:10px;background:linear-gradient(135deg,#f093fb,#f5576c);color:#fff;font-size:18px;font-weight:bold;cursor:pointer;transition:transform .2s}
-button:hover{transform:translateY(-2px)}
-.btn-sec{background:linear-gradient(135deg,#667eea,#764ba2)}
-.btn-start{background:linear-gradient(135deg,#4ade80,#22c55e);animation:pulse 1.5s infinite}
-.btn-start:disabled{background:rgba(255,255,255,.2);cursor:not-allowed;animation:none}
-.btn-abn{background:linear-gradient(135deg,#ef4444,#dc2626)}
-.btn-rec{background:linear-gradient(135deg,#3b82f6,#2563eb)}
-.btn-eat{background:linear-gradient(135deg,#f59e0b,#d97706);font-size:20px;padding:18px}
-.btn-eat:disabled{background:rgba(255,255,255,.2);cursor:not-allowed}
-.btn-fr{background:linear-gradient(135deg,#8b5cf6,#7c3aed)}
-.btn-pr{background:linear-gradient(135deg,#f59e0b,#d97706)}
-.room-code{background:rgba(255,255,255,.2);padding:20px;border-radius:10px;text-align:center;font-size:2em;font-weight:bold;letter-spacing:5px;margin:20px 0}
-.players-list{background:rgba(255,255,255,.1);padding:15px;border-radius:10px;margin:20px 0}
-.player-item{display:flex;justify-content:space-between;align-items:center;padding:10px;margin:5px 0;background:rgba(255,255,255,.1);border-radius:5px}
-.player-name{font-size:1.2em;display:flex;align-items:center;gap:8px}
-.chips-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0}
-.chip{aspect-ratio:1;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:10px;display:flex;justify-content:center;align-items:center;font-size:2em;cursor:pointer;transition:all .3s;border:3px solid transparent}
-.chip:hover{transform:scale(1.05)}
-.chip.selected{border-color:#f5576c;background:linear-gradient(135deg,#f093fb,#f5576c)}
-.chip.preview{border-color:#ffd700;background:linear-gradient(135deg,#ffd700,#ffed4e);animation:pg 1s infinite}
-.chip.eaten{opacity:.3;cursor:not-allowed;pointer-events:none}
-.chip.disabled{opacity:.5;cursor:not-allowed;pointer-events:none}
-@keyframes pg{0%,100%{box-shadow:0 0 10px #ffd700}50%{box-shadow:0 0 20px #ffd700,0 0 30px #ffd700}}
-.timer{text-align:center;font-size:3em;font-weight:bold;margin:20px 0}
-.message{text-align:center;font-size:2em;font-weight:bold;margin:20px 0;min-height:60px}
-.message.safe{color:#4ade80;text-shadow:0 0 10px #4ade80}
-.message.poisoned{color:#f5576c;text-shadow:0 0 10px #f5576c}
-.coin{width:150px;height:150px;margin:30px auto;border-radius:50%;background:linear-gradient(135deg,#ffd700,#ffed4e);display:flex;justify-content:center;align-items:center;font-size:1.5em;font-weight:bold;color:#333;animation:flip 3s ease-out}
-@keyframes flip{0%{transform:rotateY(0) scale(1)}50%{transform:rotateY(1800deg) scale(1.5)}100%{transform:rotateY(3600deg) scale(1)}}
-.health-container{display:flex;justify-content:center;gap:20px;margin:20px 0}
-.health{display:flex;justify-content:center;gap:5px}
-.health-label{font-size:.9em;opacity:.8;margin-bottom:5px;text-align:center}
-.heart{font-size:2em}
-.heart.lost{opacity:.3}
-.heart.opponent{filter:grayscale(100%) brightness(1.5)}
-.stats{background:rgba(255,255,255,.1);padding:20px;border-radius:10px;margin:20px 0;text-align:center}
-.stats-title{font-size:1.5em;margin-bottom:15px;color:#ffd700}
-.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}
-.stat-item{background:rgba(255,255,255,.1);padding:15px;border-radius:10px}
-.stat-value{font-size:2em;font-weight:bold;color:#4ade80}
-.user-info{background:rgba(255,255,255,.1);padding:15px;border-radius:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center}
-.user-name{font-size:1.3em;font-weight:bold;color:#ffd700;display:flex;align-items:center;gap:10px}
-.logout-btn{background:rgba(245,87,108,.3);padding:8px 15px;border-radius:5px;cursor:pointer;font-size:.9em;width:auto;margin:0}
-.votes{text-align:center;font-size:1.2em;margin:10px 0;color:#ffd700}
-#gameover-title.win{color:#4ade80;text-shadow:0 0 20px #4ade80;font-weight:bold;animation:pulse 1s infinite}
-#gameover-title.lose{color:#f5576c;text-shadow:0 0 20px #f5576c;font-weight:bold;animation:shake .5s}
-@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
-@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-10px)}75%{transform:translateX(10px)}}
-.disconnected-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);display:none;justify-content:center;align-items:center;z-index:1000;flex-direction:column}
-.disconnected-overlay.active{display:flex}
-.disconnected-box{background:rgba(255,255,255,.1);backdrop-filter:blur(10px);border-radius:20px;padding:40px;text-align:center;max-width:500px;width:90%}
-.disconnected-icon{font-size:5em;margin-bottom:20px;animation:pulse 2s infinite}
-.disconnected-title{font-size:2em;margin-bottom:15px;color:#f5576c}
-.disconnected-message{font-size:1.2em;margin-bottom:20px;line-height:1.6;white-space:pre-line}
-.reconnect-timer{font-size:3em;font-weight:bold;color:#ffd700;margin:20px 0}
-.spinner{border:4px solid rgba(255,255,255,.2);border-top:4px solid #ffd700;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:20px auto}
-@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-.odb{background:linear-gradient(135deg,#f5576c,#f093fb);padding:15px;border-radius:10px;text-align:center;margin:20px 0;font-size:1.2em;font-weight:bold;animation:pulse 1s infinite}
-.error-message{color:#f5576c;text-align:center;margin:10px 0;font-size:.9em}
-.success-message{color:#4ade80;text-align:center;margin:10px 0;font-size:.9em}
-.tab-buttons{display:flex;gap:10px;margin-bottom:20px}
-.tab-button{flex:1;padding:10px;background:rgba(255,255,255,.1);border:none;border-radius:10px;color:#fff;cursor:pointer;font-size:1em;margin:0}
-.tab-button.active{background:linear-gradient(135deg,#f093fb,#f5576c)}
-.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);display:none;justify-content:center;align-items:center;z-index:2000}
-.modal-overlay.active{display:flex}
-.modal-box{background:linear-gradient(135deg,#1e293b,#334155);border-radius:20px;padding:40px;text-align:center;max-width:450px;width:90%;border:2px solid #ef4444;box-shadow:0 0 30px rgba(239,68,68,.5)}
-.modal-box.fm{border-color:#8b5cf6;box-shadow:0 0 30px rgba(139,92,246,.5);max-width:500px}
-.modal-icon{font-size:4em;margin-bottom:15px}
-.modal-title{font-size:1.8em;margin-bottom:15px;color:#ef4444;font-weight:bold}
-.modal-title.ft{color:#8b5cf6}
-.modal-message{font-size:1.1em;margin-bottom:25px;line-height:1.6;color:#f1f5f9}
-.modal-buttons{display:flex;gap:15px}
-.modal-buttons button{flex:1;margin:0}
-.btn-yes{background:linear-gradient(135deg,#ef4444,#dc2626)}
-.btn-no{background:linear-gradient(135deg,#64748b,#475569)}
-.friends-list{max-height:300px;overflow-y:auto;margin:15px 0}
-.friend-item{display:flex;justify-content:space-between;align-items:center;padding:12px;margin:8px 0;background:rgba(255,255,255,.1);border-radius:10px}
-.friend-info{display:flex;align-items:center;gap:10px}
-.friend-status-dot{width:12px;height:12px;border-radius:50%;display:inline-block}
-.friend-status-dot.online{background:#4ade80;box-shadow:0 0 10px #4ade80}
-.friend-status-dot.offline{background:#64748b}
-.friend-username{font-size:1.1em;font-weight:bold}
-.friend-location{font-size:.8em;color:#94a3b8;margin-top:2px}
-.friend-actions{display:flex;gap:5px}
-.friend-actions button{padding:8px 12px;font-size:.8em;margin:0;width:auto}
-.btn-inv{background:linear-gradient(135deg,#4ade80,#22c55e)}
-.btn-rm{background:linear-gradient(135deg,#ef4444,#dc2626)}
-.btn-acc{background:linear-gradient(135deg,#4ade80,#22c55e)}
-.btn-dec{background:linear-gradient(135deg,#64748b,#475569)}
-.add-friend-section{display:flex;gap:10px;margin-top:15px}
-.add-friend-section input{flex:1;margin:0}
-.add-friend-section button{width:auto;padding:15px 20px;margin:0}
-.remember-me{display:flex;align-items:center;gap:10px;margin:10px 0;font-size:.9em}
-.remember-me input[type=checkbox]{width:20px;height:20px;margin:0}
-.forgot-password-link{text-align:center;margin:10px 0;font-size:.9em}
-.forgot-password-link a{color:#ffd700;text-decoration:none;cursor:pointer}
-.forgot-password-link a:hover{text-decoration:underline}
-.invite-notification{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#8b5cf6,#7c3aed);padding:20px 30px;border-radius:15px;box-shadow:0 10px 30px rgba(139,92,246,.5);z-index:3000;display:none;text-align:center}
-.invite-notification.active{display:block;animation:sd .3s ease-out}
-@keyframes sd{from{transform:translateX(-50%) translateY(-100px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
-.invite-notification .invite-buttons{display:flex;gap:10px;margin-top:10px}
-.invite-notification button{padding:10px 20px;font-size:.9em;margin:0;width:auto}
-.opi{text-align:center;font-size:1em;color:#ffd700;margin:10px 0;min-height:25px;font-weight:bold}
-.email-input{background:rgba(255,255,255,.15)}
-.friends-tabs{display:flex;gap:10px;margin-bottom:15px}
-.friends-tab{flex:1;padding:10px;background:rgba(255,255,255,.1);border:none;border-radius:10px;color:#fff;cursor:pointer;font-size:1em;margin:0}
-.friends-tab.active{background:linear-gradient(135deg,#8b5cf6,#7c3aed)}
-.request-badge{background:#ef4444;color:#fff;border-radius:50%;padding:2px 6px;font-size:.8em;margin-left:5px}
-.profile-avatar{width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid #ffd700;margin:10px auto;display:block}
-.avatar-small{width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.3)}
-.profile-info{background:rgba(255,255,255,.1);padding:15px;border-radius:10px;margin:15px 0;text-align:left}
-.profile-info-label{font-size:.9em;opacity:.8}
-.profile-info-value{font-weight:bold;word-break:break-all}
-.language-buttons{display:flex;gap:10px;margin-top:10px}
-.language-buttons button{flex:1;background:rgba(255,255,255,.2);padding:10px}
-.email-edit-section{display:flex;gap:10px;margin-top:10px}
-.email-edit-section input{flex:1;margin:0;padding:10px}
-.email-edit-section button{width:auto;padding:10px 15px;margin:0;font-size:.9em}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;display:flex;justify-content:center;align-items:center;color:#fff}.container{background:rgba(255,255,255,.1);backdrop-filter:blur(10px);border-radius:20px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,.3);max-width:600px;width:90%}h1{text-align:center;margin-bottom:30px;font-size:2.5em}.screen{display:none}.screen.active{display:block}input{width:100%;padding:15px;margin:10px 0;border:none;border-radius:10px;background:rgba(255,255,255,.2);color:#fff;font-size:16px}input::placeholder{color:rgba(255,255,255,.7)}button{width:100%;padding:15px;margin:10px 0;border:none;border-radius:10px;background:linear-gradient(135deg,#f093fb,#f5576c);color:#fff;font-size:18px;font-weight:bold;cursor:pointer;transition:transform .2s}button:hover{transform:translateY(-2px)}.btn-sec{background:linear-gradient(135deg,#667eea,#764ba2)}.btn-start{background:linear-gradient(135deg,#4ade80,#22c55e);animation:pulse 1.5s infinite}.btn-start:disabled{background:rgba(255,255,255,.2);cursor:not-allowed;animation:none}.btn-abn{background:linear-gradient(135deg,#ef4444,#dc2626)}.btn-rec{background:linear-gradient(135deg,#3b82f6,#2563eb)}.btn-eat{background:linear-gradient(135deg,#f59e0b,#d97706);font-size:20px;padding:18px}.btn-eat:disabled{background:rgba(255,255,255,.2);cursor:not-allowed}.btn-fr{background:linear-gradient(135deg,#8b5cf6,#7c3aed)}.btn-pr{background:linear-gradient(135deg,#f59e0b,#d97706)}.btn-save{background:linear-gradient(135deg,#4ade80,#22c55e);display:none}.room-code{background:rgba(255,255,255,.2);padding:20px;border-radius:10px;text-align:center;font-size:2em;font-weight:bold;letter-spacing:5px;margin:20px 0}.players-list{background:rgba(255,255,255,.1);padding:15px;border-radius:10px;margin:20px 0}.player-item{display:flex;justify-content:space-between;align-items:center;padding:10px;margin:5px 0;background:rgba(255,255,255,.1);border-radius:5px}.player-name{font-size:1.2em;display:flex;align-items:center;gap:8px}.chips-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0}.chip{aspect-ratio:1;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:10px;display:flex;justify-content:center;align-items:center;font-size:2em;cursor:pointer;transition:all .3s;border:3px solid transparent}.chip:hover{transform:scale(1.05)}.chip.selected{border-color:#f5576c;background:linear-gradient(135deg,#f093fb,#f5576c)}.chip.preview{border-color:#ffd700;background:linear-gradient(135deg,#ffd700,#ffed4e);animation:pg 1s infinite}.chip.eaten{opacity:.3;cursor:not-allowed;pointer-events:none}.chip.disabled{opacity:.5;cursor:not-allowed;pointer-events:none}@keyframes pg{0%,100%{box-shadow:0 0 10px #ffd700}50%{box-shadow:0 0 20px #ffd700,0 0 30px #ffd700}}.timer{text-align:center;font-size:3em;font-weight:bold;margin:20px 0}.message{text-align:center;font-size:2em;font-weight:bold;margin:20px 0;min-height:60px}.message.safe{color:#4ade80;text-shadow:0 0 10px #4ade80}.message.poisoned{color:#f5576c;text-shadow:0 0 10px #f5576c}.coin{width:150px;height:150px;margin:30px auto;border-radius:50%;background:linear-gradient(135deg,#ffd700,#ffed4e);display:flex;justify-content:center;align-items:center;font-size:1.5em;font-weight:bold;color:#333;animation:flip 3s ease-out}@keyframes flip{0%{transform:rotateY(0) scale(1)}50%{transform:rotateY(1800deg) scale(1.5)}100%{transform:rotateY(3600deg) scale(1)}}.health-container{display:flex;justify-content:center;gap:20px;margin:20px 0}.health{display:flex;justify-content:center;gap:5px}.health-label{font-size:.9em;opacity:.8;margin-bottom:5px;text-align:center}.heart{font-size:2em}.heart.lost{opacity:.3}.heart.opponent{filter:grayscale(100%) brightness(1.5)}.stats{background:rgba(255,255,255,.1);padding:20px;border-radius:10px;margin:20px 0;text-align:center}.stats-title{font-size:1.5em;margin-bottom:15px;color:#ffd700}.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.stat-item{background:rgba(255,255,255,.1);padding:15px;border-radius:10px}.stat-value{font-size:2em;font-weight:bold;color:#4ade80}.user-info{background:rgba(255,255,255,.1);padding:15px;border-radius:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center}.user-name{font-size:1.3em;font-weight:bold;color:#ffd700;display:flex;align-items:center;gap:10px}.logout-btn{background:rgba(245,87,108,.3);padding:8px 15px;border-radius:5px;cursor:pointer;font-size:.9em;width:auto;margin:0}.votes{text-align:center;font-size:1.2em;margin:10px 0;color:#ffd700}#gameover-title.win{color:#4ade80;text-shadow:0 0 20px #4ade80;font-weight:bold;animation:pulse 1s infinite}#gameover-title.lose{color:#f5576c;text-shadow:0 0 20px #f5576c;font-weight:bold;animation:shake .5s}@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-10px)}75%{transform:translateX(10px)}}.disconnected-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);display:none;justify-content:center;align-items:center;z-index:1000;flex-direction:column}.disconnected-overlay.active{display:flex}.disconnected-box{background:rgba(255,255,255,.1);backdrop-filter:blur(10px);border-radius:20px;padding:40px;text-align:center;max-width:500px;width:90%}.disconnected-icon{font-size:5em;margin-bottom:20px;animation:pulse 2s infinite}.disconnected-title{font-size:2em;margin-bottom:15px;color:#f5576c}.disconnected-message{font-size:1.2em;margin-bottom:20px;line-height:1.6;white-space:pre-line}.reconnect-timer{font-size:3em;font-weight:bold;color:#ffd700;margin:20px 0}.spinner{border:4px solid rgba(255,255,255,.2);border-top:4px solid #ffd700;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:20px auto}@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}.odb{background:linear-gradient(135deg,#f5576c,#f093fb);padding:15px;border-radius:10px;text-align:center;margin:20px 0;font-size:1.2em;font-weight:bold;animation:pulse 1s infinite}.error-message{color:#f5576c;text-align:center;margin:10px 0;font-size:.9em}.success-message{color:#4ade80;text-align:center;margin:10px 0;font-size:.9em}.tab-buttons{display:flex;gap:10px;margin-bottom:20px}.tab-button{flex:1;padding:10px;background:rgba(255,255,255,.1);border:none;border-radius:10px;color:#fff;cursor:pointer;font-size:1em;margin:0}.tab-button.active{background:linear-gradient(135deg,#f093fb,#f5576c)}.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);display:none;justify-content:center;align-items:center;z-index:2000}.modal-overlay.active{display:flex}.modal-box{background:linear-gradient(135deg,#1e293b,#334155);border-radius:20px;padding:40px;text-align:center;max-width:450px;width:90%;border:2px solid #ef4444;box-shadow:0 0 30px rgba(239,68,68,.5)}.modal-box.fm{border-color:#8b5cf6;box-shadow:0 0 30px rgba(139,92,246,.5);max-width:500px}.modal-icon{font-size:4em;margin-bottom:15px}.modal-title{font-size:1.8em;margin-bottom:15px;color:#ef4444;font-weight:bold}.modal-title.ft{color:#8b5cf6}.modal-message{font-size:1.1em;margin-bottom:25px;line-height:1.6;color:#f1f5f9}.modal-buttons{display:flex;gap:15px}.modal-buttons button{flex:1;margin:0}.btn-yes{background:linear-gradient(135deg,#ef4444,#dc2626)}.btn-no{background:linear-gradient(135deg,#64748b,#475569)}.friends-list{max-height:300px;overflow-y:auto;margin:15px 0}.friend-item{display:flex;justify-content:space-between;align-items:center;padding:12px;margin:8px 0;background:rgba(255,255,255,.1);border-radius:10px}.friend-info{display:flex;align-items:center;gap:10px}.friend-status-dot{width:12px;height:12px;border-radius:50%;display:inline-block}.friend-status-dot.online{background:#4ade80;box-shadow:0 0 10px #4ade80}.friend-status-dot.offline{background:#64748b}.friend-username{font-size:1.1em;font-weight:bold}.friend-location{font-size:.8em;color:#94a3b8;margin-top:2px}.friend-actions{display:flex;gap:5px}.friend-actions button{padding:8px 12px;font-size:.8em;margin:0;width:auto}.btn-inv{background:linear-gradient(135deg,#4ade80,#22c55e)}.btn-rm{background:linear-gradient(135deg,#ef4444,#dc2626)}.btn-acc{background:linear-gradient(135deg,#4ade80,#22c55e)}.btn-dec{background:linear-gradient(135deg,#64748b,#475569)}.add-friend-section{display:flex;gap:10px;margin-top:15px}.add-friend-section input{flex:1;margin:0}.add-friend-section button{width:auto;padding:15px 20px;margin:0}.remember-me{display:flex;align-items:center;gap:10px;margin:10px 0;font-size:.9em}.remember-me input[type=checkbox]{width:20px;height:20px;margin:0}.forgot-password-link{text-align:center;margin:10px 0;font-size:.9em}.forgot-password-link a{color:#ffd700;text-decoration:none;cursor:pointer}.forgot-password-link a:hover{text-decoration:underline}.invite-notification{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#8b5cf6,#7c3aed);padding:20px 30px;border-radius:15px;box-shadow:0 10px 30px rgba(139,92,246,.5);z-index:3000;display:none;text-align:center}.invite-notification.active{display:block;animation:sd .3s ease-out}@keyframes sd{from{transform:translateX(-50%) translateY(-100px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}.invite-notification .invite-buttons{display:flex;gap:10px;margin-top:10px}.invite-notification button{padding:10px 20px;font-size:.9em;margin:0;width:auto}.opi{text-align:center;font-size:1em;color:#ffd700;margin:10px 0;min-height:25px;font-weight:bold}.email-input{background:rgba(255,255,255,.15)}.friends-tabs{display:flex;gap:10px;margin-bottom:15px}.friends-tab{flex:1;padding:10px;background:rgba(255,255,255,.1);border:none;border-radius:10px;color:#fff;cursor:pointer;font-size:1em;margin:0}.friends-tab.active{background:linear-gradient(135deg,#8b5cf6,#7c3aed)}.request-badge{background:#ef4444;color:#fff;border-radius:50%;padding:2px 6px;font-size:.8em;margin-left:5px}.profile-avatar{width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid #ffd700;margin:10px auto;display:block}.avatar-small{width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.3)}.profile-info{background:rgba(255,255,255,.1);padding:15px;border-radius:10px;margin:15px 0;text-align:left}.profile-info-label{font-size:.9em;opacity:.8}.profile-info-value{font-weight:bold;word-break:break-all}.language-buttons{display:flex;gap:10px;margin-top:10px}.language-buttons button{flex:1;background:rgba(255,255,255,.2);padding:10px}.email-edit-section{display:flex;gap:10px;margin-top:10px}.email-edit-section input{flex:1;margin:0;padding:10px}.email-edit-section button{width:auto;padding:10px 15px;margin:0;font-size:.9em}
 </style>
 </head>
 <body>
 
-<div class="invite-notification" id="invite-notification">
-  <div id="invite-message">Friend invited you!</div>
-  <div class="invite-buttons">
-    <button class="btn-yes" onclick="acceptInvite()">Accept</button>
-    <button class="btn-no" onclick="declineInvite()">Decline</button>
-  </div>
-</div>
+<div class="invite-notification" id="invite-notification"><div id="invite-message">Friend invited you!</div><div class="invite-buttons"><button class="btn-yes" onclick="acceptInvite()">Accept</button><button class="btn-no" onclick="declineInvite()">Decline</button></div></div>
 
-<div class="modal-overlay" id="abandon-modal">
-  <div class="modal-box">
-    <div class="modal-icon">⚠️</div>
-    <div class="modal-title">Warning!</div>
-    <div class="modal-message">Abandon match? You will lose.</div>
-    <div class="modal-buttons">
-      <button class="btn-yes" onclick="confirmAbandon()">Yes</button>
-      <button class="btn-no" onclick="closeAbandonModal()">No</button>
-    </div>
-  </div>
-</div>
+<div class="modal-overlay" id="abandon-modal"><div class="modal-box"><div class="modal-icon">️</div><div class="modal-title">Warning!</div><div class="modal-message">Abandon match? You will lose.</div><div class="modal-buttons"><button class="btn-yes" onclick="confirmAbandon()">Yes</button><button class="btn-no" onclick="closeAbandonModal()">No</button></div></div></div>
 
-<div class="modal-overlay" id="abandon-game-modal">
-  <div class="modal-box">
-    <div class="modal-icon">⚠️</div>
-    <div class="modal-title">Warning!</div>
-    <div class="modal-message">Abandon game? You will lose.</div>
-    <div class="modal-buttons">
-      <button class="btn-yes" onclick="confirmAbandonGame()">Yes</button>
-      <button class="btn-no" onclick="closeAbandonGameModal()">No</button>
-    </div>
-  </div>
-</div>
+<div class="modal-overlay" id="abandon-game-modal"><div class="modal-box"><div class="modal-icon">⚠️</div><div class="modal-title">Warning!</div><div class="modal-message">Abandon game? You will lose.</div><div class="modal-buttons"><button class="btn-yes" onclick="confirmAbandonGame()">Yes</button><button class="btn-no" onclick="closeAbandonGameModal()">No</button></div></div></div>
 
-<div class="modal-overlay" id="friends-modal">
-  <div class="modal-box fm">
-    <div class="modal-icon"></div>
-    <div class="modal-title ft">Friends</div>
-    <div class="friends-tabs">
-      <button class="friends-tab active" onclick="showFriendsTab('list',this)">Friends</button>
-      <button class="friends-tab" onclick="showFriendsTab('requests',this)">Requests <span id="request-count" class="request-badge" style="display:none">0</span></button>
-    </div>
-    <div id="friends-list-container" class="friends-list"></div>
-    <div id="friends-requests-container" class="friends-list" style="display:none"></div>
-    <div class="add-friend-section" id="add-friend-section">
-      <input type="text" id="add-friend-input" placeholder="Username">
-      <button onclick="sendFriendRequest()">Send</button>
-    </div>
-    <button onclick="closeFriendsModal()" class="btn-sec" style="margin-top:15px">Close</button>
-  </div>
-</div>
+<div class="modal-overlay" id="friends-modal"><div class="modal-box fm"><div class="modal-icon">👥</div><div class="modal-title ft">Friends</div><div class="friends-tabs"><button class="friends-tab active" onclick="showFriendsTab('list',this)">Friends</button><button class="friends-tab" onclick="showFriendsTab('requests',this)">Requests <span id="request-count" class="request-badge" style="display:none">0</span></button></div><div id="friends-list-container" class="friends-list"></div><div id="friends-requests-container" class="friends-list" style="display:none"></div><div class="add-friend-section" id="add-friend-section"><input type="text" id="add-friend-input" placeholder="Username"><button onclick="sendFriendRequest()">Send</button></div><button onclick="closeFriendsModal()" class="btn-sec" style="margin-top:15px">Close</button></div></div>
 
-<div class="modal-overlay" id="profile-modal">
-  <div class="modal-box fm">
-    <div class="modal-icon">👤</div>
-    <div class="modal-title ft">Profile</div>
-    <img id="profile-avatar-img" class="profile-avatar" src="https://via.placeholder.com/100">
-    <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="uploadAvatar()">
-    <button onclick="document.getElementById('avatar-input').click()" style="width:auto;padding:8px 15px;font-size:.9em;margin:10px auto">Change Avatar</button>
-    <div class="profile-info">
-      <div class="profile-info-label">Email:</div>
-      <div id="profile-email" class="profile-info-value">-</div>
-      <div id="profile-verify-status" style="font-size:.8em;margin-top:5px"></div>
-      <div class="email-edit-section">
-        <input type="email" id="profile-email-input" class="email-input" placeholder="New Email">
-        <button onclick="updateEmail()">Update</button>
-      </div>
-    </div>
-    <div class="profile-info">
-      <div class="profile-info-label" style="text-align:center">Languages</div>
-      <div class="language-buttons">
-        <button onclick="changeLanguage('en')">English</button>
-        <button onclick="changeLanguage('fa')">فارسی</button>
-      </div>
-    </div>
-    <button onclick="closeProfileModal()" class="btn-sec" style="margin-top:15px">Close</button>
-  </div>
-</div>
+<div class="modal-overlay" id="profile-modal"><div class="modal-box fm"><div class="modal-icon">👤</div><div class="modal-title ft">Profile</div><img id="profile-avatar-img" class="profile-avatar" src="https://via.placeholder.com/100"><input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="uploadAvatar()"><button onclick="document.getElementById('avatar-input').click()" style="width:auto;padding:8px 15px;font-size:.9em;margin:10px auto">Change Avatar</button><div class="profile-info"><div class="profile-info-label">Email:</div><div id="profile-email" class="profile-info-value">-</div><div id="profile-verify-status" style="font-size:.8em;margin-top:5px"></div><div class="email-edit-section"><input type="email" id="profile-email-input" class="email-input" placeholder="New Email"><button onclick="updateEmail()">Update</button></div></div><div class="profile-info"><div class="profile-info-label" style="text-align:center">Languages</div><div class="language-buttons"><button onclick="changeLanguage('en')">English</button><button onclick="changeLanguage('fa')">فارسی</button></div></div><button id="save-changes-btn" class="btn-save" onclick="saveProfileChanges()">💾 Save Changes</button><button onclick="closeProfileModal()" class="btn-sec" style="margin-top:15px">Close</button></div></div>
 
-<div class="modal-overlay" id="verify-email-modal">
-  <div class="modal-box">
-    <div class="modal-icon">📧</div>
-    <div class="modal-title" style="color:#ffd700">Verify Email</div>
-    <div class="modal-message">6-digit code sent to your email. Enter below:</div>
-    <input type="text" id="verify-code-input" placeholder="Code" maxlength="6" style="text-align:center;font-size:24px;letter-spacing:10px">
-    <button onclick="verifyEmail()">Verify</button>
-    <button onclick="resendVerificationCode()" class="btn-sec" style="margin-top:10px;font-size:14px">📩 Resend</button>
-    <button onclick="closeVerifyModal()" class="btn-sec" style="margin-top:10px">Close</button>
-    <div class="error-message" id="verify-error"></div>
-    <div class="success-message" id="verify-success"></div>
-  </div>
-</div>
+<div class="modal-overlay" id="verify-email-modal"><div class="modal-box"><div class="modal-icon">📧</div><div class="modal-title" style="color:#ffd700">Verify Email</div><div class="modal-message">6-digit code sent to your email. Enter below:</div><input type="text" id="verify-code-input" placeholder="Code" maxlength="6" style="text-align:center;font-size:24px;letter-spacing:10px"><button onclick="verifyEmail()">Verify</button><button onclick="resendVerificationCode()" class="btn-sec" style="margin-top:10px;font-size:14px"> Resend</button><button onclick="closeVerifyModal()" class="btn-sec" style="margin-top:10px">Close</button><div class="error-message" id="verify-error"></div><div class="success-message" id="verify-success"></div></div></div>
 
-<div class="modal-overlay" id="forgot-password-modal">
-  <div class="modal-box">
-    <div class="modal-icon">🔐</div>
-    <div class="modal-title" style="color:#ffd700">Forgot Password</div>
-    <div id="forgot-step-1">
-      <input type="text" id="forgot-username" placeholder="Username">
-      <button onclick="sendResetCode()">Send Code</button>
-    </div>
-    <div id="forgot-step-2" style="display:none">
-      <div class="success-message" id="reset-code-sent">Code sent!</div>
-      <input type="text" id="reset-code" placeholder="6-digit code" maxlength="6">
-      <input type="password" id="new-password" placeholder="New Password">
-      <button onclick="resetPassword()">Reset</button>
-    </div>
-    <button onclick="closeForgotPasswordModal()" class="btn-sec" style="margin-top:15px">Close</button>
-    <div class="error-message" id="forgot-error"></div>
-  </div>
-</div>
+<div class="modal-overlay" id="forgot-password-modal"><div class="modal-box"><div class="modal-icon">🔐</div><div class="modal-title" style="color:#ffd700">Forgot Password</div><div id="forgot-step-1"><input type="text" id="forgot-username" placeholder="Username"><button onclick="sendResetCode()">Send Code</button></div><div id="forgot-step-2" style="display:none"><div class="success-message" id="reset-code-sent">Code sent!</div><input type="text" id="reset-code" placeholder="6-digit code" maxlength="6"><input type="password" id="new-password" placeholder="New Password"><button onclick="resetPassword()">Reset</button></div><button onclick="closeForgotPasswordModal()" class="btn-sec" style="margin-top:15px">Close</button><div class="error-message" id="forgot-error"></div></div></div>
 
-<div class="disconnected-overlay" id="disconnected-overlay">
-  <div class="disconnected-box">
-    <div class="disconnected-icon">📡</div>
-    <div class="disconnected-title">Disconnected!</div>
-    <div class="disconnected-message" id="disconnected-message-text">Reconnecting...</div>
-    <div class="spinner"></div>
-    <div class="reconnect-timer" id="reconnect-timer">30</div>
-  </div>
-</div>
+<div class="disconnected-overlay" id="disconnected-overlay"><div class="disconnected-box"><div class="disconnected-icon">📡</div><div class="disconnected-title">Disconnected!</div><div class="disconnected-message" id="disconnected-message-text">Reconnecting...</div><div class="spinner"></div><div class="reconnect-timer" id="reconnect-timer">30</div></div></div>
 
 <div class="container">
-  <div id="auth-screen" class="screen active">
-    <h1> Chips Game</h1>
-    <div class="tab-buttons">
-      <button class="tab-button active" onclick="showTab('login',this)">Login</button>
-      <button class="tab-button" onclick="showTab('register',this)">Register</button>
-    </div>
-    <div id="login-form">
-      <input type="text" id="login-username" placeholder="Username">
-      <input type="password" id="login-password" placeholder="Password">
-      <label class="remember-me">
-        <input type="checkbox" id="remember-me">
-        <span>Remember me</span>
-      </label>
-      <div class="forgot-password-link">
-        <a onclick="showForgotPasswordModal()">Forgot password?</a>
-      </div>
-      <div class="error-message" id="login-error"></div>
-      <button onclick="login()">Login</button>
-    </div>
-    <div id="register-form" style="display:none">
-      <input type="text" id="register-username" placeholder="Username (3-20 chars)">
-      <input type="password" id="register-password" placeholder="Password (min 6 chars)">
-      <input type="password" id="register-confirm" placeholder="Confirm Password">
-      <input type="email" id="register-email" class="email-input" placeholder="Email (Required)">
-      <div class="error-message" id="register-error"></div>
-      <button onclick="register()">Register</button>
-    </div>
-  </div>
+<div id="auth-screen" class="screen active"><h1>🎮 Chips Game</h1><div class="tab-buttons"><button class="tab-button active" onclick="showTab('login',this)">Login</button><button class="tab-button" onclick="showTab('register',this)">Register</button></div><div id="login-form"><input type="text" id="login-username" placeholder="Username"><input type="password" id="login-password" placeholder="Password"><label class="remember-me"><input type="checkbox" id="remember-me"><span>Remember me</span></label><div class="forgot-password-link"><a onclick="showForgotPasswordModal()">Forgot password?</a></div><div class="error-message" id="login-error"></div><button onclick="login()">Login</button></div><div id="register-form" style="display:none"><input type="text" id="register-username" placeholder="Username (3-20 chars)"><input type="password" id="register-password" placeholder="Password (min 6 chars)"><input type="password" id="register-confirm" placeholder="Confirm Password"><input type="email" id="register-email" class="email-input" placeholder="Email (Required)"><div class="error-message" id="register-error"></div><button onclick="register()">Register</button></div></div>
 
-  <div id="main-screen" class="screen">
-    <div class="user-info">
-      <div class="user-name" id="current-username">Username</div>
-      <div class="logout-btn" onclick="logout()">Logout</div>
-    </div>
-    <div class="stats" id="user-stats">
-      <div class="stats-title">Your Stats</div>
-      <div class="stats-grid">
-        <div class="stat-item"><div class="stat-value" id="stat-wins">0</div><div class="stat-label">Wins</div></div>
-        <div class="stat-item"><div class="stat-value" id="stat-losses" style="color:#f5576c">0</div><div class="stat-label">Losses</div></div>
-        <div class="stat-item"><div class="stat-value" id="stat-winrate" style="color:#ffd700">0%</div><div class="stat-label">Win Rate</div></div>
-      </div>
-    </div>
-    <button onclick="showProfileModal()" class="btn-pr"> Profile</button>
-    <button onclick="showFriendsModal()" class="btn-fr">👥 Friends</button>
-    <div id="active-match-section" style="display:none">
-      <div class="stats">
-        <div class="stats-title">Active Match!</div>
-        <p>Unfinished match found.</p>
-        <button onclick="resumeMatch()" class="btn-rec">🔄 Reconnect</button>
-        <button onclick="showAbandonModal()" class="btn-abn"> Abandon</button>
-      </div>
-    </div>
-    <div id="new-match-section">
-      <input type="text" id="room-code-input" placeholder="Room code">
-      <button onclick="createRoom()">Create Room</button>
-      <button onclick="joinRoom()" class="btn-sec">Join Room</button>
-    </div>
-  </div>
+<div id="main-screen" class="screen"><div class="user-info"><div class="user-name" id="current-username">Username</div><div class="logout-btn" onclick="logout()">Logout</div></div><div class="stats" id="user-stats"><div class="stats-title">Your Stats</div><div class="stats-grid"><div class="stat-item"><div class="stat-value" id="stat-wins">0</div><div class="stat-label">Wins</div></div><div class="stat-item"><div class="stat-value" id="stat-losses" style="color:#f5576c">0</div><div class="stat-label">Losses</div></div><div class="stat-item"><div class="stat-value" id="stat-winrate" style="color:#ffd700">0%</div><div class="stat-label">Win Rate</div></div></div></div><button onclick="showProfileModal()" class="btn-pr"> Profile</button><button onclick="showFriendsModal()" class="btn-fr">👥 Friends</button><div id="active-match-section" style="display:none"><div class="stats"><div class="stats-title">Active Match!</div><p>Unfinished match found.</p><button onclick="resumeMatch()" class="btn-rec">🔄 Reconnect</button><button onclick="showAbandonModal()" class="btn-abn"> Abandon</button></div></div><div id="new-match-section"><input type="text" id="room-code-input" placeholder="Room code"><button onclick="createRoom()">Create Room</button><button onclick="joinRoom()" class="btn-sec">Join Room</button></div></div>
 
-  <div id="waiting-screen" class="screen">
-    <div class="user-info">
-      <div class="user-name" id="waiting-username">Username</div>
-    </div>
-    <h1>Waiting Room</h1>
-    <div class="room-code" id="display-room-code">XXXXX</div>
-    <p>Share code with friend</p>
-    <div id="waiting-disconnect-banner" class="odb" style="display:none"></div>
-    <div class="players-list" id="players-list"></div>
-    <button onclick="toggleReady()" id="ready-button">Ready</button>
-    <button onclick="startGame()" id="start-button" class="btn-start" style="display:none">Start Game</button>
-    <button onclick="showFriendsModal()" class="btn-fr"> Friends</button>
-    <button onclick="leaveRoom()" class="btn-sec">Leave</button>
-  </div>
+<div id="waiting-screen" class="screen"><div class="user-info"><div class="user-name" id="waiting-username">Username</div></div><h1>Waiting Room</h1><div class="room-code" id="display-room-code">XXXXX</div><p>Share code with friend</p><div id="waiting-disconnect-banner" class="odb" style="display:none"></div><div class="players-list" id="players-list"></div><button onclick="toggleReady()" id="ready-button">Ready</button><button onclick="startGame()" id="start-button" class="btn-start" style="display:none">Start Game</button><button onclick="showFriendsModal()" class="btn-fr">👥 Friends</button><button onclick="leaveRoom()" class="btn-sec">Leave</button></div>
 
-  <div id="poison-screen" class="screen">
-    <div class="user-info">
-      <div class="user-name" id="poison-username">Username</div>
-    </div>
-    <h1>Poison Phase</h1>
-    <div id="poison-disconnect-banner" class="odb" style="display:none"></div>
-    <div class="timer" id="timer">30</div>
-    <p>Select 3 chips to poison</p>
-    <div class="chips-grid" id="poison-chips"></div>
-    <button onclick="submitPoisons()">Submit</button>
-  </div>
+<div id="poison-screen" class="screen"><div class="user-info"><div class="user-name" id="poison-username">Username</div></div><h1>Poison Phase</h1><div id="poison-disconnect-banner" class="odb" style="display:none"></div><div class="timer" id="timer">30</div><p>Select 3 chips to poison</p><div class="chips-grid" id="poison-chips"></div><button onclick="submitPoisons()">Submit</button></div>
 
-  <div id="coin-screen" class="screen">
-    <div class="user-info">
-      <div class="user-name" id="coin-username">Username</div>
-    </div>
-    <h1>Coin Toss</h1>
-    <div id="coin-disconnect-banner" class="odb" style="display:none"></div>
-    <div class="coin" id="coin">?</div>
-    <div class="message" id="coin-result"></div>
-  </div>
+<div id="coin-screen" class="screen"><div class="user-info"><div class="user-name" id="coin-username">Username</div></div><h1>Coin Toss</h1><div id="coin-disconnect-banner" class="odb" style="display:none"></div><div class="coin" id="coin">?</div><div class="message" id="coin-result"></div></div>
 
-  <div id="game-screen" class="screen">
-    <div class="user-info">
-      <div class="user-name" id="game-username">Username</div>
-    </div>
-    <h1 id="game-title">Your Turn</h1>
-    <div class="health-container">
-      <div><div class="health-label">You</div><div class="health" id="health"></div></div>
-      <div><div class="health-label">Opponent</div><div class="health" id="opponent-health"></div></div>
-    </div>
-    <div id="game-disconnect-banner" class="odb" style="display:none"></div>
-    <div class="opi" id="opponent-preview-indicator"></div>
-    <div class="chips-grid" id="game-chips"></div>
-    <div class="message" id="game-message"></div>
-    <button id="eat-button" class="btn-eat" onclick="confirmEat()" disabled>🍟 Eat</button>
-    <button onclick="showAbandonGameModal()" class="btn-abn">🚪 Abandon</button>
-  </div>
+<div id="game-screen" class="screen"><div class="user-info"><div class="user-name" id="game-username">Username</div></div><h1 id="game-title">Your Turn</h1><div class="health-container"><div><div class="health-label">You</div><div class="health" id="health"></div></div><div><div class="health-label">Opponent</div><div class="health" id="opponent-health"></div></div></div><div id="game-disconnect-banner" class="odb" style="display:none"></div><div class="opi" id="opponent-preview-indicator"></div><div class="chips-grid" id="game-chips"></div><div class="message" id="game-message"></div><button id="eat-button" class="btn-eat" onclick="confirmEat()" disabled>🍟 Eat</button><button onclick="showAbandonGameModal()" class="btn-abn">🚪 Abandon</button></div>
 
-  <div id="gameover-screen" class="screen">
-    <div class="user-info">
-      <div class="user-name" id="gameover-username">Username</div>
-    </div>
-    <h1 id="gameover-title">Game Over</h1>
-    <div class="message" id="gameover-message"></div>
-    <div class="votes" id="votes-display"></div>
-    <button onclick="playAgain()">Play Again</button>
-    <button onclick="backToMain()" class="btn-sec">Back to Main</button>
-  </div>
+<div id="gameover-screen" class="screen"><div class="user-info"><div class="user-name" id="gameover-username">Username</div></div><h1 id="gameover-title">Game Over</h1><div class="message" id="gameover-message"></div><div class="votes" id="votes-display"></div><button onclick="playAgain()">Play Again</button><button onclick="backToMain()" class="btn-sec">Back to Main</button></div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket=io({reconnection:true,reconnectionAttempts:Infinity,reconnectionDelay:1000,reconnectionDelayMax:5000});
-let currentScreen='auth',roomCode='',selectedPoisons=[],myHealth=3,opponentHealth=3,language='en',isMyTurn=false,poisonTimerInterval=null,playersList=[],currentUser=null,reconnectTimerInterval=null,isDisconnected=false,isOwner=false,roomOwner=null,pendingJoinCode=null,disconnectTimerInterval=null,selectedChipIndex=null,pendingInvite=null,friendsList=[],friendRequests=[],currentFriendsTab='list',usersData={},pendingVerificationUsername=null,pendingVerificationPassword=null;
+let currentScreen='auth',roomCode='',selectedPoisons=[],myHealth=3,opponentHealth=3,language='en',isMyTurn=false,poisonTimerInterval=null,playersList=[],currentUser=null,reconnectTimerInterval=null,isDisconnected=false,isOwner=false,roomOwner=null,pendingJoinCode=null,disconnectTimerInterval=null,selectedChipIndex=null,pendingInvite=null,friendsList=[],friendRequests=[],currentFriendsTab='list',usersData={},pendingVerificationUsername=null,pendingVerificationPassword=null,pendingAvatar=null,pendingEmail=null;
+
+const translations={
+  en:{title:'🎮 Chips Game',login:'Login',register:'Register',username:'Username',password:'Password',rememberMe:'Remember me',forgotLink:'Forgot password?',yourStats:'Your Stats',wins:'Wins',losses:'Losses',winrate:'Win Rate',profile:'👤 Profile',friends:'👥 Friends',activeMatch:'Active Match!',resumeMatch:'Unfinished match found.',reconnect:'🔄 Reconnect',abandonMatch:'🚪 Abandon',createRoom:'Create Room',joinRoom:'Join Room',waitingRoom:'Waiting Room',shareCode:'Share code with friend',ready:'Ready',cancel:'Cancel',startGame:'Start Game',leaveRoom:'Leave',poisonPhase:'Poison Phase',selectPoison:'Select 3 chips to poison',submit:'Submit',coinToss:'Coin Toss',yourTurn:'Your Turn',opponentTurn:"Opponent's Turn",eat:' Eat',abandonGame:'🚪 Abandon',playAgain:'Play Again',backToMain:'Back to Main',youWin:'You Win!',youLose:'You Lose!',disconnected:'Disconnected!',reconnecting:'Reconnecting...',opponentChoosing:'Opponent choosing...',selectChip:'Select chip',waiting:'Waiting...',friendsList:'Friends',requests:'Requests',sendRequest:'Send',close:'Close',changeAvatar:'Change Avatar',emailLabel:'Email:',updateEmail:'Update',languages:'Languages',verified:'✅ Verified',notVerified:'❌ Not verified',noFriends:'No friends',noRequests:'No requests',invite:'Invite',remove:'Remove',accept:'Accept',decline:'Decline',wantsFriends:'Wants to be friends',onlineMain:'Online (Main)',onlineRoom:'Online (Room)',onlineGame:'Online (Game)',offline:'Offline',saveChanges:' Save Changes',changesSaved:'✅ Changes saved!',roomCode:'Room code',enterUsername:'Enter username',forgotPassword:'Forgot Password',sendCode:'Send Code',resetCode:'6-digit code',newPassword:'New Password',reset:'Reset',codeSent:'Code sent!',warning:'Warning!',abandonMsg:'Abandon match? You will lose.',yes:'Yes',no:'No',verifyEmail:'Verify Email',verifyMsg:'6-digit code sent to your email. Enter below:',verify:'Verify',resend:' Resend',verified_success:'✅ Verified!',opponentReconnected:'reconnected!',disconnectedMsg:' disconnected! ',s:'s...',abandoned:'abandoned. You win!',youWinMsg:'Defeated ',youLoseMsg:' defeated you!',readyMsg:'/2 ready',select3:'Select 3',inRoomFirst:'In room first',sentTo:'Sent to ',added:'Added!',removeConfirm:'Remove ',fromFriends:' from friends?',emailRequired:'Email required',updated:'Updated! Verify again.',changedTo:'Changed to ',english:'English',farsi:'فارسی',logout:'Logout',partyLeader:'Party Leader',you:'You',opponent:'Opponent'},
+  fa:{title:'🎮 بازی چیپس',login:'ورود',register:'ثبت‌نام',username:'نام کاربری',password:'رمز عبور',rememberMe:'مرا به خاطر بسپار',forgotLink:'رمز عبور را فراموش کرده‌اید؟',yourStats:'آمار شما',wins:'برد',losses:'باخت',winrate:'درصد برد',profile:'👤 پروفایل',friends:'👥 دوستان',activeMatch:'بازی فعال!',resumeMatch:'بازی ناتمام دارید.',reconnect:'🔄 اتصال مجدد',abandonMatch:' ترک',createRoom:'ساخت لابی',joinRoom:'جوین شدن',waitingRoom:'اتاق انتظار',shareCode:'کد را به دوستت بده',ready:'آماده',cancel:'لغو',startGame:'شروع بازی',leaveRoom:'ترک',poisonPhase:'فاز پویزن',selectPoison:'3 چیپس برای پویزن انتخاب کن',submit:'ثبت',coinToss:'پرتاب سکه',yourTurn:'نوبت تو',opponentTurn:'نوبت حریف',eat:'🍟 خوردن',abandonGame:' ترک',playAgain:'بازی دوباره',backToMain:'بازگشت به منو',youWin:'تو بردی!',youLose:'تو باختی!',disconnected:'قطع شدی!',reconnecting:'در حال اتصال مجدد...',opponentChoosing:'حریف در حال انتخاب...',selectChip:'چیپس انتخاب کن',waiting:'در انتظار...',friendsList:'دوستان',requests:'درخواست‌ها',sendRequest:'ارسال',close:'بستن',changeAvatar:'تغییر عکس',emailLabel:'ایمیل:',updateEmail:'بروزرسانی',languages:'زبان‌ها',verified:'✅ تایید شده',notVerified:'❌ تایید نشده',noFriends:'دوستی نیست',noRequests:'درخواستی نیست',invite:'دعوت',remove:'حذف',accept:'قبول',decline:'رد',wantsFriends:'میخواد دوست بشه',onlineMain:'آنلاین (منو)',onlineRoom:'آنلاین (لابی)',onlineGame:'آنلاین (بازی)',offline:'آفلاین',saveChanges:'💾 ذخیره تغییرات',changesSaved:'✅ ذخیره شد!',roomCode:'کد لابی',enterUsername:'نام کاربری را وارد کنید',forgotPassword:'فراموشی رمز',sendCode:'ارسال کد',resetCode:'کد 6 رقمی',newPassword:'رمز جدید',reset:'بازیابی',codeSent:'کد ارسال شد!',warning:'هشدار!',abandonMsg:'ترک بازی؟ می‌بازی.',yes:'بله',no:'نه',verifyEmail:'تایید ایمیل',verifyMsg:'کد 6 رقمی به ایمیلت ارسال شد. وارد کن:',verify:'تایید',resend:'📩 ارسال مجدد',verified_success:'✅ تایید شد!',opponentReconnected:'دوباره وصل شد!',disconnectedMsg:' قطع شد! ',s:'ثانیه...',abandoned:'ترک کرد. تو بردی!',youWinMsg:'بردی مقابل ',youLoseMsg:' تو رو برد!',readyMsg:'/2 آماده',select3:'3 تا انتخاب کن',inRoomFirst:'اول باید تو لابی باشی',sentTo:'ارسال شد به ',added:'اضافه شد!',removeConfirm:'حذف ',fromFriends:' از دوستان؟',emailRequired:'ایمیل الزامیه',updated:'بروز شد! دوباره تایید کن.',changedTo:'تغییر کرد به ',english:'English',farsi:'فارسی',logout:'خروج',partyLeader:'لیدر گروه',you:'تو',opponent:'حریف'}
+};
+
+function t(key){return translations[language][key]||translations['en'][key]||key}
+
+function applyTranslations(){
+  const titleEl=document.querySelector('#auth-screen h1');if(titleEl)titleEl.textContent=t('title');
+  const tabs=document.querySelectorAll('.tab-button');if(tabs[0])tabs[0].textContent=t('login');if(tabs[1])tabs[1].textContent=t('register');
+  const lu=document.getElementById('login-username'),lp=document.getElementById('login-password');if(lu)lu.placeholder=t('username');if(lp)lp.placeholder=t('password');
+  const rm=document.querySelector('.remember-me span');if(rm)rm.textContent=t('rememberMe');
+  const fl=document.querySelector('.forgot-password-link a');if(fl)fl.textContent=t('forgotLink');
+  const lb=document.querySelector('#login-form button[onclick="login()"]');if(lb)lb.textContent=t('login');
+  const ru=document.getElementById('register-username'),rp=document.getElementById('register-password'),rc=document.getElementById('register-confirm');if(ru)ru.placeholder=t('username')+' (3-20 chars)';if(rp)rp.placeholder=t('password')+' (min 6 chars)';if(rc)rc.placeholder=t('password')+' (confirm)';
+  const rb=document.querySelector('#register-form button[onclick="register()"]');if(rb)rb.textContent=t('register');
+  const lo=document.querySelector('.logout-btn');if(lo)lo.textContent=t('logout');
+  const st=document.querySelector('.stats-title');if(st)st.textContent=t('yourStats');
+  const sw=document.querySelector('#stat-wins + .stat-label'),sl=document.querySelector('#stat-losses + .stat-label'),sr=document.querySelector('#stat-winrate + .stat-label');if(sw)sw.textContent=t('wins');if(sl)sl.textContent=t('losses');if(sr)sr.textContent=t('winrate');
+  const pb=document.querySelector('.btn-pr'),fb=document.querySelector('.btn-fr');if(pb)pb.textContent=t('profile');if(fb)fb.textContent=t('friends');
+  const am=document.querySelector('#active-match-section .stats-title'),rm2=document.querySelector('#active-match-section p');if(am)am.textContent=t('activeMatch');if(rm2)rm2.textContent=t('resumeMatch');
+  const rcb=document.querySelector('#active-match-section .btn-rec'),ab=document.querySelector('#active-match-section .btn-abn');if(rcb)rcb.textContent=t('reconnect');if(ab)ab.textContent=t('abandonMatch');
+  const rci=document.getElementById('room-code-input');if(rci)rci.placeholder=t('roomCode');
+  const crb=document.querySelector('#new-match-section button[onclick="createRoom()"]'),jrb=document.querySelector('#new-match-section button[onclick="joinRoom()"]');if(crb)crb.textContent=t('createRoom');if(jrb)jrb.textContent=t('joinRoom');
+  const wrh=document.querySelector('#waiting-screen h1');if(wrh)wrh.textContent=t('waitingRoom');
+  const scp=document.querySelector('#waiting-screen p');if(scp)scp.textContent=t('shareCode');
+  const rdb=document.getElementById('ready-button');if(rdb&&rdb.textContent!=='Cancel')rdb.textContent=t('ready');
+  const sgb=document.getElementById('start-button');if(sgb)sgb.textContent=t('startGame');
+  const lrb=document.querySelector('#waiting-screen .btn-sec');if(lrb)lrb.textContent=t('leaveRoom');
+  const pph=document.querySelector('#poison-screen h1');if(pph)pph.textContent=t('poisonPhase');
+  const psp=document.querySelector('#poison-screen p');if(psp)psp.textContent=t('selectPoison');
+  const spb=document.querySelector('#poison-screen button[onclick="submitPoisons()"]');if(spb)spb.textContent=t('submit');
+  const cth=document.querySelector('#coin-screen h1');if(cth)cth.textContent=t('coinToss');
+  const yll=document.querySelector('#game-screen .health-label'),oll=document.querySelectorAll('#game-screen .health-label')[1];if(yll)yll.textContent=t('you');if(oll)oll.textContent=t('opponent');
+  const eb=document.getElementById('eat-button');if(eb)eb.textContent=t('eat');
+  const agb=document.querySelector('#game-screen .btn-abn');if(agb)agb.textContent=t('abandonGame');
+  const gob=document.querySelector('#gameover-screen button[onclick="playAgain()"]'),btm=document.querySelector('#gameover-screen .btn-sec');if(gob)gob.textContent=t('playAgain');if(btm)btm.textContent=t('backToMain');
+  const fmi=document.querySelector('#friends-modal .modal-title');if(fmi)fmi.textContent=t('friends');
+  const ftabs=document.querySelectorAll('#friends-modal .friends-tab');if(ftabs[0])ftabs[0].textContent=t('friendsList');
+  if(ftabs[1]){const rc=document.getElementById('request-count');ftabs[1].innerHTML=t('requests')+' <span id="request-count" class="request-badge" style="display:none">0</span>'}
+  const afi=document.getElementById('add-friend-input');if(afi)afi.placeholder=t('enterUsername');
+  const sfb=document.querySelector('#add-friend-section button');if(sfb)sfb.textContent=t('sendRequest');
+  const cfb=document.querySelector('#friends-modal .btn-sec');if(cfb)cfb.textContent=t('close');
+  const pmi=document.querySelector('#profile-modal .modal-title');if(pmi)pmi.textContent=t('profile');
+  const cab=document.querySelector('#profile-modal button[onclick*="avatar-input"]');if(cab)cab.textContent=t('changeAvatar');
+  const eli=document.querySelector('#profile-modal .profile-info-label');if(eli)eli.textContent=t('emailLabel');
+  const ueb=document.querySelector('#profile-modal button[onclick="updateEmail()"]');if(ueb)ueb.textContent=t('updateEmail');
+  const lal=document.querySelectorAll('#profile-modal .profile-info-label')[1];if(lal)lal.textContent=t('languages');
+  const lb2=document.querySelectorAll('#profile-modal .language-buttons button');if(lb2[0])lb2[0].textContent=t('english');if(lb2[1])lb2[1].textContent=t('farsi');
+  const scb=document.getElementById('save-changes-btn');if(scb)scb.textContent=t('saveChanges');
+  const cpb=document.querySelector('#profile-modal .btn-sec');if(cpb)cpb.textContent=t('close');
+  const vmi=document.querySelector('#verify-email-modal .modal-title');if(vmi)vmi.textContent=t('verifyEmail');
+  const vmg=document.querySelector('#verify-email-modal .modal-message');if(vmg)vmg.textContent=t('verifyMsg');
+  const vvb=document.querySelector('#verify-email-modal button[onclick="verifyEmail()"]');if(vvb)vvb.textContent=t('verify');
+  const rvb=document.querySelector('#verify-email-modal button[onclick="resendVerificationCode()"]');if(rvb)rvb.textContent=t('resend');
+  const cvb=document.querySelectorAll('#verify-email-modal .btn-sec')[1];if(cvb)cvb.textContent=t('close');
+  const fpi=document.querySelector('#forgot-password-modal .modal-title');if(fpi)fpi.textContent=t('forgotPassword');
+  const scb2=document.querySelector('#forgot-step-1 button');if(scb2)scb2.textContent=t('sendCode');
+  const rccs=document.getElementById('reset-code-sent');if(rccs)rccs.textContent=t('codeSent');
+  const rcb2=document.getElementById('reset-code');if(rcb2)rcb2.placeholder=t('resetCode');
+  const npb=document.getElementById('new-password');if(npb)npb.placeholder=t('newPassword');
+  const rpb=document.querySelector('#forgot-step-2 button[onclick="resetPassword()"]');if(rpb)rpb.textContent=t('reset');
+  const cfpb=document.querySelector('#forgot-password-modal .btn-sec');if(cfpb)cfpb.textContent=t('close');
+  const amt=document.querySelectorAll('.modal-title');if(amt[1])amt[1].textContent=t('warning');if(amt[2])amt[2].textContent=t('warning');
+  const amm=document.querySelectorAll('.modal-message');if(amm[1])amm[1].textContent=t('abandonMsg');if(amm[2])amm[2].textContent=t('abandonMsg');
+  const ayb=document.querySelectorAll('.btn-yes');if(ayb[0])ayb[0].textContent=t('yes');if(ayb[1])ayb[1].textContent=t('yes');
+  const anb=document.querySelectorAll('.btn-no');if(anb[0])anb[0].textContent=t('no');if(anb[1])anb[1].textContent=t('no');
+  updateReadyButton();
+}
 
 function clearPoisonTimer(){if(poisonTimerInterval){clearInterval(poisonTimerInterval);poisonTimerInterval=null}}
 function clearDisconnectTimer(){if(disconnectTimerInterval){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null}['waiting-disconnect-banner','poison-disconnect-banner','coin-disconnect-banner','game-disconnect-banner'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.display='none';el.textContent=''}})}
@@ -398,164 +130,34 @@ function closeForgotPasswordModal(){document.getElementById('forgot-password-mod
 function confirmAbandonGame(){closeAbandonGameModal();socket.emit('abandon_match_during_game');roomCode='';isOwner=false;roomOwner=null;backToMain()}
 async function confirmAbandon(){closeAbandonModal();try{await fetch('/api/clear-active-room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser})});socket.emit('abandon_match');roomCode='';isOwner=false;roomOwner=null;await loadUserData();showScreen('main');alert('Abandoned. You lost.')}catch(e){console.error(e)}}
 
-async function register(){
-  const username=document.getElementById('register-username').value.trim(),
-        password=document.getElementById('register-password').value,
-        confirm=document.getElementById('register-confirm').value,
-        email=document.getElementById('register-email').value.trim(),
-        errorDiv=document.getElementById('register-error');
-  errorDiv.textContent='';
-  if(!username||!password||!confirm||!email){errorDiv.textContent='All fields required';return}
-  if(password!==confirm){errorDiv.textContent='Passwords mismatch';return}
-  try{
-    const response=await fetch('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,email})}),
-          data=await response.json();
-    if(data.success){
-      pendingVerificationUsername=username;
-      pendingVerificationPassword=password;
-      document.getElementById('verify-email-modal').classList.add('active');
-      document.getElementById('verify-code-input').value='';
-      document.getElementById('verify-error').textContent='';
-      document.getElementById('verify-success').textContent='';
-      errorDiv.textContent='';
-    }else errorDiv.textContent=data.error;
-  }catch(e){errorDiv.textContent='Failed'}
-}
+async function register(){const username=document.getElementById('register-username').value.trim(),password=document.getElementById('register-password').value,confirm=document.getElementById('register-confirm').value,email=document.getElementById('register-email').value.trim(),errorDiv=document.getElementById('register-error');errorDiv.textContent='';if(!username||!password||!confirm||!email){errorDiv.textContent='All fields required';return}if(password!==confirm){errorDiv.textContent='Passwords mismatch';return}try{const response=await fetch('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,email})}),data=await response.json();if(data.success){pendingVerificationUsername=username;pendingVerificationPassword=password;document.getElementById('verify-email-modal').classList.add('active');document.getElementById('verify-code-input').value='';document.getElementById('verify-error').textContent='';document.getElementById('verify-success').textContent='';errorDiv.textContent=''}else errorDiv.textContent=data.error}catch(e){errorDiv.textContent='Failed'}}
 
-async function verifyEmail(){
-  const code=document.getElementById('verify-code-input').value.trim(),
-        errorDiv=document.getElementById('verify-error'),
-        successDiv=document.getElementById('verify-success');
-  if(!code||code.length!==6){errorDiv.textContent='6-digit code';return}
-  try{
-    const response=await fetch('/api/verify-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:pendingVerificationUsername,code})}),
-          data=await response.json();
-    if(data.success){
-      successDiv.textContent='✅ Verified!';
-      errorDiv.textContent='';
-      setTimeout(()=>{closeVerifyModal();autoFillLogin()},1500);
-    }else{errorDiv.textContent=data.error;successDiv.textContent=''}
-  }catch(e){errorDiv.textContent='Failed'}
-}
+async function verifyEmail(){const code=document.getElementById('verify-code-input').value.trim(),errorDiv=document.getElementById('verify-error'),successDiv=document.getElementById('verify-success');if(!code||code.length!==6){errorDiv.textContent='6-digit code';return}try{const response=await fetch('/api/verify-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:pendingVerificationUsername,code})}),data=await response.json();if(data.success){successDiv.textContent=t('verified_success');errorDiv.textContent='';setTimeout(()=>{closeVerifyModal();autoFillLogin()},1500)}else{errorDiv.textContent=data.error;successDiv.textContent=''}}catch(e){errorDiv.textContent='Failed'}}
 
-async function resendVerificationCode(){
-  if(!pendingVerificationUsername)return;
-  try{
-    const response=await fetch('/api/resend-verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:pendingVerificationUsername})}),
-          data=await response.json();
-    if(data.success){document.getElementById('verify-success').textContent='✅ Resent!';document.getElementById('verify-error').textContent=''}
-  }catch(e){console.error(e)}
-}
+async function resendVerificationCode(){if(!pendingVerificationUsername)return;try{const response=await fetch('/api/resend-verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:pendingVerificationUsername})}),data=await response.json();if(data.success){document.getElementById('verify-success').textContent='✅ Resent!';document.getElementById('verify-error').textContent=''}}catch(e){console.error(e)}}
 
-function autoFillLogin(){
-  showTab('login',document.querySelector('.tab-button'));
-  document.getElementById('login-username').value=pendingVerificationUsername||'';
-  document.getElementById('login-password').value=pendingVerificationPassword||'';
-  pendingVerificationPassword=null;
-}
+function autoFillLogin(){showTab('login',document.querySelector('.tab-button'));document.getElementById('login-username').value=pendingVerificationUsername||'';document.getElementById('login-password').value=pendingVerificationPassword||'';pendingVerificationPassword=null}
 
-async function login(){
-  const username=document.getElementById('login-username').value.trim(),
-        password=document.getElementById('login-password').value,
-        rememberMe=document.getElementById('remember-me').checked,
-        errorDiv=document.getElementById('login-error');
-  errorDiv.textContent='';
-  if(!username||!password){errorDiv.textContent='Required';return}
-  try{
-    const response=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})}),
-          data=await response.json();
-    if(data.success){
-      const nu=data.username.toLowerCase();
-      localStorage.setItem('currentUser',nu);
-      if(rememberMe)localStorage.setItem('rememberedUser',nu);
-      else localStorage.removeItem('rememberedUser');
-      currentUser=nu;usersData=data;language=data.language||'en';
-      await loadUserData(data);showScreen('main');
-      socket.emit('user_logged_in',{username:nu});
-    }else errorDiv.textContent=data.error;
-  }catch(e){errorDiv.textContent='Failed'}
-}
+async function login(){const username=document.getElementById('login-username').value.trim(),password=document.getElementById('login-password').value,rememberMe=document.getElementById('remember-me').checked,errorDiv=document.getElementById('login-error');errorDiv.textContent='';if(!username||!password){errorDiv.textContent='Required';return}try{const response=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})}),data=await response.json();if(data.success){const nu=data.username.toLowerCase();localStorage.setItem('currentUser',nu);if(rememberMe)localStorage.setItem('rememberedUser',nu);else localStorage.removeItem('rememberedUser');currentUser=nu;usersData=data;language=data.language||'en';applyTranslations();await loadUserData(data);showScreen('main');socket.emit('user_logged_in',{username:nu})}else errorDiv.textContent=data.error}catch(e){errorDiv.textContent='Failed'}}
 
-function showProfileModal(){
-  document.getElementById('profile-modal').classList.add('active');
-  document.getElementById('profile-email').textContent=usersData.email||'Not set';
-  document.getElementById('profile-email-input').value=usersData.email||'';
-  const ai=document.getElementById('profile-avatar-img');
-  ai.src=usersData.avatar||'https://via.placeholder.com/100';
-  const vs=document.getElementById('profile-verify-status');
-  vs.innerHTML=usersData.emailVerified?'<span style="color:#4ade80">✅ Verified</span>':'<span style="color:#f5576c">❌ Not verified</span>';
-}
-function closeProfileModal(){document.getElementById('profile-modal').classList.remove('active')}
+function showProfileModal(){document.getElementById('profile-modal').classList.add('active');document.getElementById('profile-email').textContent=usersData.email||'Not set';document.getElementById('profile-email-input').value=usersData.email||'';const ai=document.getElementById('profile-avatar-img');ai.src=usersData.avatar||'https://via.placeholder.com/100';const vs=document.getElementById('profile-verify-status');vs.innerHTML=usersData.emailVerified?'<span style="color:#4ade80">'+t('verified')+'</span>':'<span style="color:#f5576c">'+t('notVerified')+'</span>';pendingAvatar=null;pendingEmail=null;updateSaveButton()}
+function closeProfileModal(){document.getElementById('profile-modal').classList.remove('active');pendingAvatar=null;pendingEmail=null;updateSaveButton()}
 
-async function updateEmail(){
-  const email=document.getElementById('profile-email-input').value.trim();
-  if(!email)return alert('Required');
-  try{
-    const res=await fetch('/api/update-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser,email})}),
-          data=await res.json();
-    if(data.success){usersData.email=email;usersData.emailVerified=false;showProfileModal();alert('Updated! Verify again.')}
-    else alert(data.error);
-  }catch(e){alert('Failed')}
-}
+async function updateEmail(){const email=document.getElementById('profile-email-input').value.trim();if(!email)return alert(t('emailRequired'));pendingEmail=email;updateSaveButton()}
 
-function uploadAvatar(){
-  const input=document.getElementById('avatar-input');
-  if(input.files&&input.files[0]){
-    const reader=new FileReader();
-    reader.onload=function(e){
-      const b64=e.target.result;
-      document.getElementById('profile-avatar-img').src=b64;
-      fetch('/api/update-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser,avatar:b64})})
-        .then(r=>r.json()).then(d=>{if(d.success){usersData.avatar=b64;alert('Updated!')}});
-    };
-    reader.readAsDataURL(input.files[0]);
-  }
-}
+function uploadAvatar(){const input=document.getElementById('avatar-input');if(input.files&&input.files[0]){const reader=new FileReader();reader.onload=function(e){pendingAvatar=e.target.result;document.getElementById('profile-avatar-img').src=pendingAvatar;updateSaveButton()};reader.readAsDataURL(input.files[0])}}
 
-function changeLanguage(lang){
-  language=lang;
-  fetch('/api/update-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser,language:lang})})
-    .then(r=>r.json()).then(d=>{if(d.success){usersData.language=lang;alert('Changed to '+(lang==='en'?'English':'فارسی'))}});
-}
+function changeLanguage(lang){language=lang;applyTranslations();fetch('/api/update-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser,language:lang})}).then(r=>r.json()).then(d=>{if(d.success)usersData.language=lang})}
 
-async function loadUserData(data=null){
-  if(!currentUser)return;
-  let userData=data;
-  if(!userData){const response=await fetch('/api/user/'+currentUser);userData=await response.json()}
-  usersData=userData;
-  const ah=`<img src="${userData.avatar||'https://via.placeholder.com/32'}" class="avatar-small">`;
-  document.getElementById('current-username').innerHTML=ah+currentUser;
-  document.getElementById('waiting-username').innerHTML=ah+currentUser;
-  document.getElementById('poison-username').innerHTML=ah+currentUser;
-  document.getElementById('coin-username').innerHTML=ah+currentUser;
-  document.getElementById('game-username').innerHTML=ah+currentUser;
-  document.getElementById('gameover-username').innerHTML=ah+currentUser;
-  const w=userData.stats.wins,l=userData.stats.losses,t=w+l,wr=t>0?Math.round(w/t*100):0;
-  document.getElementById('stat-wins').textContent=w;
-  document.getElementById('stat-losses').textContent=l;
-  document.getElementById('stat-winrate').textContent=wr+'%';
-  if(userData.activeRoom){
-    try{
-      const cr=await fetch('/api/check-room/'+userData.activeRoom),cd=await cr.json();
-      if(cd.exists){document.getElementById('active-match-section').style.display='block';document.getElementById('new-match-section').style.display='none'}
-      else{await fetch('/api/clear-active-room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser})});document.getElementById('active-match-section').style.display='none';document.getElementById('new-match-section').style.display='block'}
-    }catch(e){document.getElementById('active-match-section').style.display='none';document.getElementById('new-match-section').style.display='block'}
-  }else{document.getElementById('active-match-section').style.display='none';document.getElementById('new-match-section').style.display='block'}
-  await loadFriends();await loadFriendRequests();
-}
+function updateSaveButton(){const btn=document.getElementById('save-changes-btn');if(!btn)return;if(pendingAvatar||pendingEmail){btn.style.display='block';btn.style.background='linear-gradient(135deg,#4ade80,#22c55e)'}else{btn.style.display='none'}}
+
+async function saveProfileChanges(){let saved=false;if(pendingAvatar){try{const res=await fetch('/api/update-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser,avatar:pendingAvatar})});const data=await res.json();if(data.success){usersData.avatar=pendingAvatar;saved=true}}catch(e){console.error(e)}pendingAvatar=null}if(pendingEmail){try{const res=await fetch('/api/update-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser,email:pendingEmail})});const data=await res.json();if(data.success){usersData.email=pendingEmail;usersData.emailVerified=false;saved=true}}catch(e){console.error(e)}pendingEmail=null}document.getElementById('profile-email').textContent=usersData.email||'Not set';const vs=document.getElementById('profile-verify-status');vs.innerHTML=usersData.emailVerified?'<span style="color:#4ade80">'+t('verified')+'</span>':'<span style="color:#f5576c">'+t('notVerified')+'</span>';updateSaveButton();if(saved)alert(t('changesSaved'))}
+
+async function loadUserData(data=null){if(!currentUser)return;let userData=data;if(!userData){const response=await fetch('/api/user/'+currentUser);userData=await response.json()}usersData=userData;const ah=`<img src="${userData.avatar||'https://via.placeholder.com/32'}" class="avatar-small">`;document.getElementById('current-username').innerHTML=ah+currentUser;document.getElementById('waiting-username').innerHTML=ah+currentUser;document.getElementById('poison-username').innerHTML=ah+currentUser;document.getElementById('coin-username').innerHTML=ah+currentUser;document.getElementById('game-username').innerHTML=ah+currentUser;document.getElementById('gameover-username').innerHTML=ah+currentUser;const w=userData.stats.wins,l=userData.stats.losses,t2=w+l,wr=t2>0?Math.round(w/t2*100):0;document.getElementById('stat-wins').textContent=w;document.getElementById('stat-losses').textContent=l;document.getElementById('stat-winrate').textContent=wr+'%';if(userData.activeRoom){try{const cr=await fetch('/api/check-room/'+userData.activeRoom),cd=await cr.json();if(cd.exists){document.getElementById('active-match-section').style.display='block';document.getElementById('new-match-section').style.display='none'}else{await fetch('/api/clear-active-room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser})});document.getElementById('active-match-section').style.display='none';document.getElementById('new-match-section').style.display='block'}}catch(e){document.getElementById('active-match-section').style.display='none';document.getElementById('new-match-section').style.display='block'}}else{document.getElementById('active-match-section').style.display='none';document.getElementById('new-match-section').style.display='block'}await loadFriends();await loadFriendRequests();applyTranslations()}
 
 function logout(){localStorage.removeItem('currentUser');currentUser=null;socket.emit('leave_room');showScreen('auth')}
 
-async function resumeMatch(){
-  if(!currentUser)return;
-  try{
-    const ur=await fetch('/api/user/'+currentUser),data=await ur.json();
-    if(!data.activeRoom){alert('No match');await loadUserData();return}
-    const cr=await fetch('/api/check-room/'+data.activeRoom),cd=await cr.json();
-    if(!cd.exists){alert('Gone');await fetch('/api/clear-active-room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser})});await loadUserData();return}
-    roomCode=data.activeRoom;socket.emit('reconnect_to_game',{roomCode:data.activeRoom,username:currentUser});
-  }catch(e){alert('Failed')}
-}
+async function resumeMatch(){if(!currentUser)return;try{const ur=await fetch('/api/user/'+currentUser),data=await ur.json();if(!data.activeRoom){alert('No match');await loadUserData();return}const cr=await fetch('/api/check-room/'+data.activeRoom),cd=await cr.json();if(!cd.exists){alert('Gone');await fetch('/api/clear-active-room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser})});await loadUserData();return}roomCode=data.activeRoom;socket.emit('reconnect_to_game',{roomCode:data.activeRoom,username:currentUser})}catch(e){alert('Failed')}}
 
 function createRoom(){if(!currentUser)return;socket.emit('create_room',currentUser)}
 function joinRoom(){if(!currentUser)return;const code=document.getElementById('room-code-input').value.trim().toUpperCase();if(!code)return alert('Enter code');pendingJoinCode=code;socket.emit('join_room',{roomCode:code,username:currentUser})}
@@ -564,130 +166,29 @@ function backToMain(){socket.emit('leave_room');roomCode='';isOwner=false;roomOw
 function toggleReady(){socket.emit('player_ready')}
 function startGame(){socket.emit('start_game')}
 
-function updateReadyButton(){
-  const b=document.getElementById('ready-button');if(!b)return;
-  const mp=playersList.find(p=>p.username===currentUser);
-  if(mp&&mp.ready){b.textContent='Cancel';b.style.background='linear-gradient(135deg,#f5576c,#f093fb)'}
-  else{b.textContent='Ready';b.style.background='linear-gradient(135deg,#f093fb,#f5576c)'}
-}
-function updateStartButton(){
-  const sb=document.getElementById('start-button');if(!sb)return;
-  if(isOwner){sb.style.display='block';sb.disabled=!(playersList.length===2&&playersList.every(p=>p.ready))}
-  else sb.style.display='none';
-}
-function updatePlayersList(players,owner){
-  playersList=players;roomOwner=owner;isOwner=owner===currentUser;
-  const ld=document.getElementById('players-list');if(!ld)return;ld.innerHTML='';
-  players.forEach(player=>{
-    const item=document.createElement('div');item.className='player-item';
-    const name=document.createElement('span');name.className='player-name';
-    const av=document.createElement('img');av.src=player.avatar||'https://via.placeholder.com/32';av.className='avatar-small';name.appendChild(av);
-    if(player.isOwner){const cr=document.createElement('span');cr.className='owner-crown';cr.textContent='';name.appendChild(cr)}
-    const nt=document.createElement('span');nt.textContent=player.username+(player.username===currentUser?' (You)':'');name.appendChild(nt);
-    const st=document.createElement('span');st.className='player-status';st.textContent=player.ready?'✓':'✗';st.style.color=player.ready?'#4ade80':'#f5576c';
-    item.appendChild(name);item.appendChild(st);ld.appendChild(item);
-  });
-  updateReadyButton();updateStartButton();
-}
+function updateReadyButton(){const b=document.getElementById('ready-button');if(!b)return;const mp=playersList.find(p=>p.username===currentUser);if(mp&&mp.ready){b.textContent=t('cancel');b.style.background='linear-gradient(135deg,#f5576c,#f093fb)'}else{b.textContent=t('ready');b.style.background='linear-gradient(135deg,#f093fb,#f5576c)'}}
+function updateStartButton(){const sb=document.getElementById('start-button');if(!sb)return;if(isOwner){sb.style.display='block';sb.disabled=!(playersList.length===2&&playersList.every(p=>p.ready))}else sb.style.display='none'}
+function updatePlayersList(players,owner){playersList=players;roomOwner=owner;isOwner=owner===currentUser;const ld=document.getElementById('players-list');if(!ld)return;ld.innerHTML='';players.forEach(player=>{const item=document.createElement('div');item.className='player-item';const name=document.createElement('span');name.className='player-name';const av=document.createElement('img');av.src=player.avatar||'https://via.placeholder.com/32';av.className='avatar-small';name.appendChild(av);if(player.isOwner){const cr=document.createElement('span');cr.className='owner-crown';cr.textContent='👑';name.appendChild(cr)}const nt=document.createElement('span');nt.textContent=player.username+(player.username===currentUser?' (You)':'');name.appendChild(nt);const st=document.createElement('span');st.className='player-status';st.textContent=player.ready?'✓':'';st.style.color=player.ready?'#4ade80':'#f5576c';item.appendChild(name);item.appendChild(st);ld.appendChild(item)});updateReadyButton();updateStartButton()}
 
-function startPoisonPhase(duration){
-  clearPoisonTimer();showScreen('poison');
-  const cd=document.getElementById('poison-chips');cd.innerHTML='';selectedPoisons=[];
-  for(let i=0;i<9;i++){
-    const chip=document.createElement('div');chip.className='chip';chip.textContent=i+1;
-    chip.onclick=()=>{
-      if(chip.classList.contains('selected')){chip.classList.remove('selected');selectedPoisons=selectedPoisons.filter(idx=>idx!==i)}
-      else if(selectedPoisons.length<3){chip.classList.add('selected');selectedPoisons.push(i)}
-    };
-    cd.appendChild(chip);
-  }
-  let tl=duration;const td=document.getElementById('timer');td.textContent=tl;
-  poisonTimerInterval=setInterval(()=>{tl--;td.textContent=tl;if(tl<=0){clearPoisonTimer();socket.emit('poison_time_up')}},1000);
-}
-function submitPoisons(){if(selectedPoisons.length!==3)return alert('Select 3');clearPoisonTimer();socket.emit('submit_poisons',{poisonedChips:selectedPoisons});showScreen('coin')}
+function startPoisonPhase(duration){clearPoisonTimer();showScreen('poison');const cd=document.getElementById('poison-chips');cd.innerHTML='';selectedPoisons=[];for(let i=0;i<9;i++){const chip=document.createElement('div');chip.className='chip';chip.textContent=i+1;chip.onclick=()=>{if(chip.classList.contains('selected')){chip.classList.remove('selected');selectedPoisons=selectedPoisons.filter(idx=>idx!==i)}else if(selectedPoisons.length<3){chip.classList.add('selected');selectedPoisons.push(i)}};cd.appendChild(chip)}let tl=duration;const td=document.getElementById('timer');td.textContent=tl;poisonTimerInterval=setInterval(()=>{tl--;td.textContent=tl;if(tl<=0){clearPoisonTimer();socket.emit('poison_time_up')}},1000)}
+function submitPoisons(){if(selectedPoisons.length!==3)return alert(t('select3'));clearPoisonTimer();socket.emit('submit_poisons',{poisonedChips:selectedPoisons});showScreen('coin')}
 function playAgain(){socket.emit('play_again')}
 
-function startGameUI(){
-  myHealth=3;opponentHealth=3;updateHealth();updateOpponentHealth();showScreen('game');
-  const cd=document.getElementById('game-chips');cd.innerHTML='';selectedChipIndex=null;updateEatButton();
-  for(let i=0;i<9;i++){
-    const chip=document.createElement('div');chip.className='chip';chip.textContent=i+1;
-    chip.onclick=()=>{if(isMyTurn&&!chip.classList.contains('eaten')&&!chip.classList.contains('disabled'))selectChip(i)};
-    cd.appendChild(chip);
-  }
-  updateTurnUI();
-}
-function selectChip(ci){
-  const cd=document.getElementById('game-chips'),ch=cd.children;
-  for(let c of ch)c.classList.remove('selected');
-  socket.emit('chip_preview_cleared');
-  ch[ci].classList.add('selected');selectedChipIndex=ci;
-  socket.emit('chip_preview',{chipIndex:ci});updateEatButton();
-}
+function startGameUI(){myHealth=3;opponentHealth=3;updateHealth();updateOpponentHealth();showScreen('game');const cd=document.getElementById('game-chips');cd.innerHTML='';selectedChipIndex=null;updateEatButton();for(let i=0;i<9;i++){const chip=document.createElement('div');chip.className='chip';chip.textContent=i+1;chip.onclick=()=>{if(isMyTurn&&!chip.classList.contains('eaten')&&!chip.classList.contains('disabled'))selectChip(i)};cd.appendChild(chip)}updateTurnUI()}
+function selectChip(ci){const cd=document.getElementById('game-chips'),ch=cd.children;for(let c of ch)c.classList.remove('selected');socket.emit('chip_preview_cleared');ch[ci].classList.add('selected');selectedChipIndex=ci;socket.emit('chip_preview',{chipIndex:ci});updateEatButton()}
 function updateEatButton(){const eb=document.getElementById('eat-button');if(eb)eb.disabled=!isMyTurn||selectedChipIndex===null}
-function confirmEat(){
-  if(selectedChipIndex===null||!isMyTurn)return;
-  const ci=selectedChipIndex;selectedChipIndex=null;
-  socket.emit('chip_preview_cleared');
-  const cd=document.getElementById('game-chips'),ch=cd.children;
-  for(let c of ch)c.classList.remove('selected');
-  updateEatButton();socket.emit('eat_chip',{chipIndex:ci});
-}
-function updateTurnUI(){
-  const cd=document.getElementById('game-chips'),ch=cd.children,
-        gt=document.getElementById('game-title'),md=document.getElementById('game-message'),
-        pi=document.getElementById('opponent-preview-indicator');
-  if(isMyTurn){
-    gt.textContent='Your Turn';
-    if(!md.textContent||md.textContent==='Waiting...')md.textContent='';
-    pi.textContent='Select chip';
-    for(let c of ch)if(!c.classList.contains('eaten'))c.classList.remove('disabled');
-  }else{
-    gt.textContent="Opponent's Turn";
-    if(!md.textContent||md.textContent==='')md.textContent='Waiting...';
-    pi.textContent='Opponent choosing...';
-    for(let c of ch)c.classList.add('disabled');
-  }
-  updateEatButton();
-}
-function updateHealth(){
-  const hd=document.getElementById('health');hd.innerHTML='';
-  for(let i=0;i<3;i++){const h=document.createElement('span');h.className='heart'+(i>=myHealth?' lost':'');h.textContent='❤️';hd.appendChild(h)}
-}
-function updateOpponentHealth(){
-  const hd=document.getElementById('opponent-health');hd.innerHTML='';
-  for(let i=0;i<3;i++){const h=document.createElement('span');h.className='heart opponent'+(i>=opponentHealth?' lost':'');h.textContent='❤️';hd.appendChild(h)}
-}
+function confirmEat(){if(selectedChipIndex===null||!isMyTurn)return;const ci=selectedChipIndex;selectedChipIndex=null;socket.emit('chip_preview_cleared');const cd=document.getElementById('game-chips'),ch=cd.children;for(let c of ch)c.classList.remove('selected');updateEatButton();socket.emit('eat_chip',{chipIndex:ci})}
+function updateTurnUI(){const cd=document.getElementById('game-chips'),ch=cd.children,gt=document.getElementById('game-title'),md=document.getElementById('game-message'),pi=document.getElementById('opponent-preview-indicator');if(isMyTurn){gt.textContent=t('yourTurn');if(!md.textContent||md.textContent===t('waiting'))md.textContent='';pi.textContent=t('selectChip');for(let c of ch)if(!c.classList.contains('eaten'))c.classList.remove('disabled')}else{gt.textContent=t('opponentTurn');if(!md.textContent||md.textContent==='')md.textContent=t('waiting');pi.textContent=t('opponentChoosing');for(let c of ch)c.classList.add('disabled')}updateEatButton()}
+function updateHealth(){const hd=document.getElementById('health');hd.innerHTML='';for(let i=0;i<3;i++){const h=document.createElement('span');h.className='heart'+(i>=myHealth?' lost':'');h.textContent='❤️';hd.appendChild(h)}}
+function updateOpponentHealth(){const hd=document.getElementById('opponent-health');hd.innerHTML='';for(let i=0;i<3;i++){const h=document.createElement('span');h.className='heart opponent'+(i>=opponentHealth?' lost':'');h.textContent='❤️';hd.appendChild(h)}}
 
-function showDisconnectedOverlay(seconds){
-  isDisconnected=true;const ov=document.getElementById('disconnected-overlay');ov.classList.add('active');
-  const md=document.getElementById('disconnected-message-text');if(md)md.textContent='Disconnected. Reconnecting...';
-  let tl=seconds;const td=document.getElementById('reconnect-timer');td.textContent=tl;
-  if(reconnectTimerInterval)clearInterval(reconnectTimerInterval);
-  reconnectTimerInterval=setInterval(()=>{
-    tl--;td.textContent=tl;
-    if(md&&isDisconnected)md.textContent='Disconnected. Reconnecting...\n\nTime: '+tl+'s';
-    if(tl<=0){
-      clearInterval(reconnectTimerInterval);hideDisconnectedOverlay();
-      if(currentUser){fetch('/api/clear-active-room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser})}).then(()=>{loadUserData().then(()=>{showScreen('main');alert('Timeout. You lost.')})})}
-      else logout();
-    }
-  },1000);
-}
+function showDisconnectedOverlay(seconds){isDisconnected=true;const ov=document.getElementById('disconnected-overlay');ov.classList.add('active');const md=document.getElementById('disconnected-message-text');if(md)md.textContent=t('reconnecting');let tl=seconds;const td=document.getElementById('reconnect-timer');td.textContent=tl;if(reconnectTimerInterval)clearInterval(reconnectTimerInterval);reconnectTimerInterval=setInterval(()=>{tl--;td.textContent=tl;if(md&&isDisconnected)md.textContent=t('reconnecting')+'\n\nTime: '+tl+'s';if(tl<=0){clearInterval(reconnectTimerInterval);hideDisconnectedOverlay();if(currentUser){fetch('/api/clear-active-room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser})}).then(()=>{loadUserData().then(()=>{showScreen('main');alert('Timeout. You lost.')})})}else logout()}},1000)}
 function hideDisconnectedOverlay(){isDisconnected=false;const ov=document.getElementById('disconnected-overlay');ov.classList.remove('active');if(reconnectTimerInterval){clearInterval(reconnectTimerInterval);reconnectTimerInterval=null}}
 
 socket.on('disconnect',r=>{console.log('[Socket] Disconnected:',r);if(roomCode&&currentUser)showDisconnectedOverlay(30)});
 socket.on('connect',()=>{console.log('[Socket] Connected:',socket.id);if(isDisconnected&&roomCode&&currentUser)socket.emit('reconnect_to_game',{roomCode,username:currentUser})});
 socket.on('reconnect_failed',async({message})=>{hideDisconnectedOverlay();try{await fetch('/api/clear-active-room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser})})}catch(e){}roomCode='';isOwner=false;roomOwner=null;await loadUserData();showScreen('main');alert(message)});
-socket.on('game_state_restored',state=>{
-  hideDisconnectedOverlay();myHealth=state.myHealth||3;opponentHealth=state.opponentHealth||3;updateHealth();updateOpponentHealth();
-  isMyTurn=state.currentTurnUsername===currentUser;isOwner=state.owner===currentUser;roomOwner=state.owner;
-  if(state.state==='LOBBY'){showScreen('waiting');document.getElementById('display-room-code').textContent=state.roomCode;updatePlayersList(state.players,state.owner)}
-  else if(state.state==='POISON_PHASE')startPoisonPhase(state.timeLeft||30);
-  else if(state.state==='COIN_TOSS')showScreen('coin');
-  else if(state.state==='PLAYING'){startGameUI();const cd=document.getElementById('game-chips');state.myEatenChips.forEach(idx=>{if(cd.children[idx])cd.children[idx].classList.add('eaten')});updateTurnUI()}
-  else if(state.state==='GAME_OVER')showScreen('gameover');
-});
+socket.on('game_state_restored',state=>{hideDisconnectedOverlay();myHealth=state.myHealth||3;opponentHealth=state.opponentHealth||3;updateHealth();updateOpponentHealth();isMyTurn=state.currentTurnUsername===currentUser;isOwner=state.owner===currentUser;roomOwner=state.owner;if(state.state==='LOBBY'){showScreen('waiting');document.getElementById('display-room-code').textContent=state.roomCode;updatePlayersList(state.players,state.owner)}else if(state.state==='POISON_PHASE')startPoisonPhase(state.timeLeft||30);else if(state.state==='COIN_TOSS')showScreen('coin');else if(state.state==='PLAYING'){startGameUI();const cd=document.getElementById('game-chips');state.myEatenChips.forEach(idx=>{if(cd.children[idx])cd.children[idx].classList.add('eaten')});updateTurnUI()}else if(state.state==='GAME_OVER')showScreen('gameover')});
 socket.on('room_created',({roomCode:code,owner})=>{roomCode=code;pendingJoinCode=null;isOwner=owner===currentUser;roomOwner=owner;document.getElementById('display-room-code').textContent=code;showScreen('waiting');updatePlayersList([{id:socket.id,username:currentUser,ready:false,isOwner:true,avatar:usersData.avatar}],owner)});
 socket.on('player_joined',({players,owner})=>{roomCode=pendingJoinCode||roomCode;pendingJoinCode=null;roomOwner=owner;isOwner=owner===currentUser;document.getElementById('display-room-code').textContent=roomCode;showScreen('waiting');updatePlayersList(players,owner)});
 socket.on('player_left',({username})=>console.log('[Left]',username));
@@ -698,58 +199,19 @@ socket.on('resume_poison_timer',({timeLeft})=>{if(currentScreen==='coin'||curren
 socket.on('pause_coin_timer',()=>{});
 socket.on('start_coin_toss',()=>{clearPoisonTimer();showScreen('coin');const c=document.getElementById('coin');c.textContent='?';c.style.animation='none';setTimeout(()=>c.style.animation='flip 3s ease-out',10)});
 socket.on('coin_toss_result',({firstPlayerId,firstPlayerName})=>{const c=document.getElementById('coin');c.textContent=firstPlayerName;document.getElementById('coin-result').textContent=firstPlayerName+' starts!';setTimeout(()=>{isMyTurn=firstPlayerName===currentUser;startGameUI()},2000)});
-socket.on('chip_eaten',({chipIndex,playerId,isPoisoned,message,health})=>{
-  if(playerId===socket.id){
-    const cd=document.getElementById('game-chips'),ch=cd.children[chipIndex];ch.classList.add('eaten');
-    const md=document.getElementById('game-message');md.textContent=message;md.className='message '+(isPoisoned?'poisoned':'safe');
-    if(health){myHealth=health[socket.id];const op=playersList.find(p=>p.id!==socket.id);if(op)opponentHealth=health[op.id];updateHealth();updateOpponentHealth()}
-    setTimeout(()=>{md.textContent='';md.className='message'},2000);
-  }
-});
-socket.on('turn_changed',({nextPlayerId,health})=>{
-  const np=playersList.find(p=>p.id===nextPlayerId);if(np)isMyTurn=np.username===currentUser;
-  if(health){myHealth=health[socket.id];opponentHealth=health[nextPlayerId];updateHealth();updateOpponentHealth()}
-  updateTurnUI();
-});
-socket.on('game_over',({winnerId,winnerName,loserId,loserName})=>{
-  clearPoisonTimer();clearDisconnectTimer();showScreen('gameover');
-  const iw=winnerName===currentUser,te=document.getElementById('gameover-title');
-  te.textContent=iw?'You Win!':'You Lose!';te.classList.remove('win','lose');te.classList.add(iw?'win':'lose');
-  document.getElementById('gameover-message').textContent=iw?'Defeated '+loserName+'!':winnerName+' defeated you!';
-  document.getElementById('votes-display').textContent='';loadUserData();
-});
-socket.on('play_again_update',({votesCount})=>document.getElementById('votes-display').textContent=votesCount+'/2 ready');
+socket.on('chip_eaten',({chipIndex,playerId,isPoisoned,message,health})=>{const cd=document.getElementById('game-chips'),ch=cd.children[chipIndex];if(ch)ch.classList.add('eaten');const md=document.getElementById('game-message');if(playerId===socket.id){md.textContent=message;md.className='message '+(isPoisoned?'poisoned':'safe');setTimeout(()=>{md.textContent='';md.className='message'},2000)}if(health){if(health[socket.id]!==undefined)myHealth=health[socket.id];const op=playersList.find(p=>p.id!==socket.id);if(op&&health[op.id]!==undefined)opponentHealth=health[op.id];updateHealth();updateOpponentHealth()}});
+socket.on('turn_changed',({nextPlayerId,health})=>{const np=playersList.find(p=>p.id===nextPlayerId);if(np)isMyTurn=np.username===currentUser;if(health){if(health[socket.id]!==undefined)myHealth=health[socket.id];if(health[nextPlayerId]!==undefined)opponentHealth=health[nextPlayerId];updateHealth();updateOpponentHealth()}updateTurnUI()});
+socket.on('game_over',({winnerId,winnerName,loserId,loserName})=>{clearPoisonTimer();clearDisconnectTimer();showScreen('gameover');const iw=winnerName===currentUser,te=document.getElementById('gameover-title');te.textContent=iw?t('youWin'):t('youLose');te.classList.remove('win','lose');te.classList.add(iw?'win':'lose');document.getElementById('gameover-message').textContent=iw?t('youWinMsg')+loserName+'!':winnerName+t('youLoseMsg');document.getElementById('votes-display').textContent='';loadUserData()});
+socket.on('play_again_update',({votesCount})=>document.getElementById('votes-display').textContent=votesCount+t('readyMsg'));
 socket.on('restart_game',()=>{myHealth=3;opponentHealth=3;updateHealth();updateOpponentHealth();clearPoisonTimer();clearDisconnectTimer();disconnectTimerInterval=null;startPoisonPhase(30)});
-socket.on('start_disconnect_timer',({disconnectedUsername,timeout,isYou})=>{
-  if(isYou)return;
-  if(disconnectTimerInterval){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null}
-  ['waiting-disconnect-banner','poison-disconnect-banner','coin-disconnect-banner','game-disconnect-banner'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none'});
-  let bi='';
-  if(currentScreen==='waiting')bi='waiting-disconnect-banner';
-  else if(currentScreen==='poison')bi='poison-disconnect-banner';
-  else if(currentScreen==='coin')bi='coin-disconnect-banner';
-  else if(currentScreen==='game')bi='game-disconnect-banner';
-  else return;
-  const b=document.getElementById(bi);if(!b)return;
-  let tl=timeout;b.textContent=disconnectedUsername+' disconnected! '+tl+'s...';b.style.display='block';
-  disconnectTimerInterval=setInterval(()=>{tl--;if(b)b.textContent=disconnectedUsername+' disconnected! '+tl+'s...';if(tl<=0){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null;if(b)b.style.display='none'}},1000);
-});
-socket.on('opponent_reconnected',({username})=>{
-  if(disconnectTimerInterval){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null}
-  ['waiting-disconnect-banner','poison-disconnect-banner','coin-disconnect-banner','game-disconnect-banner'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none'});
-  let bi='';
-  if(currentScreen==='waiting')bi='waiting-disconnect-banner';
-  else if(currentScreen==='poison')bi='poison-disconnect-banner';
-  else if(currentScreen==='coin')bi='coin-disconnect-banner';
-  else if(currentScreen==='game')bi='game-disconnect-banner';
-  if(bi){const b=document.getElementById(bi);if(b){b.textContent=username+' reconnected!';b.style.display='block';b.style.background='linear-gradient(135deg,#4ade80,#22c55e)';setTimeout(()=>{b.style.display='none';b.style.background=''},2000)}}
-});
+socket.on('start_disconnect_timer',({disconnectedUsername,timeout,isYou})=>{if(isYou)return;if(disconnectTimerInterval){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null}['waiting-disconnect-banner','poison-disconnect-banner','coin-disconnect-banner','game-disconnect-banner'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none'});let bi='';if(currentScreen==='waiting')bi='waiting-disconnect-banner';else if(currentScreen==='poison')bi='poison-disconnect-banner';else if(currentScreen==='coin')bi='coin-disconnect-banner';else if(currentScreen==='game')bi='game-disconnect-banner';else return;const b=document.getElementById(bi);if(!b)return;let tl=timeout;b.textContent=disconnectedUsername+t('disconnectedMsg')+tl+t('s');b.style.display='block';disconnectTimerInterval=setInterval(()=>{tl--;if(b)b.textContent=disconnectedUsername+t('disconnectedMsg')+tl+t('s');if(tl<=0){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null;if(b)b.style.display='none'}},1000)});
+socket.on('opponent_reconnected',({username})=>{if(disconnectTimerInterval){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null}['waiting-disconnect-banner','poison-disconnect-banner','coin-disconnect-banner','game-disconnect-banner'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none'});let bi='';if(currentScreen==='waiting')bi='waiting-disconnect-banner';else if(currentScreen==='poison')bi='poison-disconnect-banner';else if(currentScreen==='coin')bi='coin-disconnect-banner';else if(currentScreen==='game')bi='game-disconnect-banner';if(bi){const b=document.getElementById(bi);if(b){b.textContent=username+' '+t('opponentReconnected');b.style.display='block';b.style.background='linear-gradient(135deg,#4ade80,#22c55e)';setTimeout(()=>{b.style.display='none';b.style.background=''},2000)}}});
 socket.on('opponent_lost',({message})=>{if(disconnectTimerInterval){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null}['waiting-disconnect-banner','poison-disconnect-banner','coin-disconnect-banner','game-disconnect-banner'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none'});alert(message);backToMain()});
 socket.on('game_aborted',({message})=>{alert(message);clearPoisonTimer();if(disconnectTimerInterval){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null}backToMain()});
 socket.on('opponent_abandoned',async({username,message})=>{alert(message);if(disconnectTimerInterval){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null}await loadUserData();backToMain()});
 socket.on('match_abandoned',async({success})=>{if(success)console.log('[Abandon] OK')});
 socket.on('error',({message})=>{alert(message);pendingJoinCode=null;roomCode='';isOwner=false;roomOwner=null});
-socket.on('opponent_chip_preview',({chipIndex,playerId})=>{const cd=document.getElementById('game-chips');if(!cd)return;for(let c of cd.children)c.classList.remove('preview');if(cd.children[chipIndex])cd.children[chipIndex].classList.add('preview');const pi=document.getElementById('opponent-preview-indicator');if(pi&&!isMyTurn)pi.textContent='Opponent choosing...'});
+socket.on('opponent_chip_preview',({chipIndex,playerId})=>{const cd=document.getElementById('game-chips');if(!cd)return;for(let c of cd.children)c.classList.remove('preview');if(cd.children[chipIndex])cd.children[chipIndex].classList.add('preview');const pi=document.getElementById('opponent-preview-indicator');if(pi&&!isMyTurn)pi.textContent=t('opponentChoosing')});
 socket.on('opponent_chip_preview_cleared',({playerId})=>{const cd=document.getElementById('game-chips');if(!cd)return;for(let c of cd.children)c.classList.remove('preview')});
 socket.on('friend_invite',({from,roomCode})=>{pendingInvite={from,roomCode};const n=document.getElementById('invite-notification'),m=document.getElementById('invite-message');m.textContent=from+' invited you!';n.classList.add('active')});
 socket.on('friend_status_update',({username,status})=>{const f=friendsList.find(fr=>fr.username===username);if(f){f.status=status;renderFriendsList()}});
@@ -758,122 +220,32 @@ socket.on('friend_request_received',({from})=>loadFriendRequests());
 function acceptInvite(){if(!pendingInvite)return;document.getElementById('invite-notification').classList.remove('active');pendingJoinCode=pendingInvite.roomCode;socket.emit('join_room',{roomCode:pendingInvite.roomCode,username:currentUser});pendingInvite=null}
 function declineInvite(){document.getElementById('invite-notification').classList.remove('active');pendingInvite=null}
 
-async function loadFriends(){
-  if(!currentUser)return;
-  try{const r=await fetch('/api/friends/'+currentUser),d=await r.json();friendsList=d.friends||[];renderFriendsList()}
-  catch(e){console.error(e)}
-}
-async function loadFriendRequests(){
-  if(!currentUser)return;
-  try{const r=await fetch('/api/friend-requests/'+currentUser),d=await r.json();friendRequests=d.requests||[];renderFriendRequests()}
-  catch(e){console.error(e)}
-}
+async function loadFriends(){if(!currentUser)return;try{const r=await fetch('/api/friends/'+currentUser),d=await r.json();friendsList=d.friends||[];renderFriendsList()}catch(e){console.error(e)}}
+async function loadFriendRequests(){if(!currentUser)return;try{const r=await fetch('/api/friend-requests/'+currentUser),d=await r.json();friendRequests=d.requests||[];renderFriendRequests()}catch(e){console.error(e)}}
 
-function renderFriendsList(){
-  const ld=document.getElementById('friends-list-container');if(!ld)return;
-  if(friendsList.length===0){ld.innerHTML='<p style="text-align:center;color:#94a3b8;padding:20px">No friends</p>';return}
-  ld.innerHTML='';
-  friendsList.forEach(friend=>{
-    const item=document.createElement('div');item.className='friend-item';
-    const info=document.createElement('div');info.className='friend-info';
-    const sd=document.createElement('span');sd.className='friend-status-dot '+(friend.status!=='offline'?'online':'offline');
-    const un=document.createElement('div');un.innerHTML='<div class="friend-username">'+friend.username+'</div><div class="friend-location">'+(friend.status==='offline'?'Offline':friend.status==='main'?'Online (Main)':friend.status==='room'?'Online (Room)':'Online (Game)')+'</div>';
-    info.appendChild(sd);info.appendChild(un);
-    const ac=document.createElement('div');ac.className='friend-actions';
-    if(friend.status!=='offline'&&currentScreen==='waiting'){const ib=document.createElement('button');ib.className='btn-inv';ib.textContent='Invite';ib.onclick=()=>inviteFriend(friend.username);ac.appendChild(ib)}
-    const rb=document.createElement('button');rb.className='btn-rm';rb.textContent='Remove';rb.onclick=()=>removeFriend(friend.username);ac.appendChild(rb);
-    item.appendChild(info);item.appendChild(ac);ld.appendChild(item);
-  });
-}
+function renderFriendsList(){const ld=document.getElementById('friends-list-container');if(!ld)return;if(friendsList.length===0){ld.innerHTML='<p style="text-align:center;color:#94a3b8;padding:20px">'+t('noFriends')+'</p>';return}ld.innerHTML='';friendsList.forEach(friend=>{const item=document.createElement('div');item.className='friend-item';const info=document.createElement('div');info.className='friend-info';const sd=document.createElement('span');sd.className='friend-status-dot '+(friend.status!=='offline'?'online':'offline');const un=document.createElement('div');un.innerHTML='<div class="friend-username">'+friend.username+'</div><div class="friend-location">'+(friend.status==='offline'?t('offline'):friend.status==='main'?t('onlineMain'):friend.status==='room'?t('onlineRoom'):t('onlineGame'))+'</div>';info.appendChild(sd);info.appendChild(un);const ac=document.createElement('div');ac.className='friend-actions';if(friend.status!=='offline'&&currentScreen==='waiting'){const ib=document.createElement('button');ib.className='btn-inv';ib.textContent=t('invite');ib.onclick=()=>inviteFriend(friend.username);ac.appendChild(ib)}const rb=document.createElement('button');rb.className='btn-rm';rb.textContent=t('remove');rb.onclick=()=>removeFriend(friend.username);ac.appendChild(rb);item.appendChild(info);item.appendChild(ac);ld.appendChild(item)})}
 
-function renderFriendRequests(){
-  const ld=document.getElementById('friends-requests-container');if(!ld)return;
-  const bd=document.getElementById('request-count');
-  if(friendRequests.length>0){bd.style.display='inline';bd.textContent=friendRequests.length}
-  else bd.style.display='none';
-  if(friendRequests.length===0){ld.innerHTML='<p style="text-align:center;color:#94a3b8;padding:20px">No requests</p>';return}
-  ld.innerHTML='';
-  friendRequests.forEach(rf=>{
-    const item=document.createElement('div');item.className='friend-item';
-    const info=document.createElement('div');info.className='friend-info';
-    const un=document.createElement('div');un.innerHTML='<div class="friend-username">'+rf+'</div><div class="friend-location">Wants to be friends</div>';
-    info.appendChild(un);
-    const ac=document.createElement('div');ac.className='friend-actions';
-    const ab=document.createElement('button');ab.className='btn-acc';ab.textContent='Accept';ab.onclick=()=>handleFriendRequest(rf,'accept');ac.appendChild(ab);
-    const db=document.createElement('button');db.className='btn-dec';db.textContent='Decline';db.onclick=()=>handleFriendRequest(rf,'decline');ac.appendChild(db);
-    item.appendChild(info);item.appendChild(ac);ld.appendChild(item);
-  });
-}
+function renderFriendRequests(){const ld=document.getElementById('friends-requests-container');if(!ld)return;const bd=document.getElementById('request-count');if(friendRequests.length>0){bd.style.display='inline';bd.textContent=friendRequests.length}else bd.style.display='none';if(friendRequests.length===0){ld.innerHTML='<p style="text-align:center;color:#94a3b8;padding:20px">'+t('noRequests')+'</p>';return}ld.innerHTML='';friendRequests.forEach(rf=>{const item=document.createElement('div');item.className='friend-item';const info=document.createElement('div');info.className='friend-info';const un=document.createElement('div');un.innerHTML='<div class="friend-username">'+rf+'</div><div class="friend-location">'+t('wantsFriends')+'</div>';info.appendChild(un);const ac=document.createElement('div');ac.className='friend-actions';const ab=document.createElement('button');ab.className='btn-acc';ab.textContent=t('accept');ab.onclick=()=>handleFriendRequest(rf,'accept');ac.appendChild(ab);const db=document.createElement('button');db.className='btn-dec';db.textContent=t('decline');db.onclick=()=>handleFriendRequest(rf,'decline');ac.appendChild(db);item.appendChild(info);item.appendChild(ac);ld.appendChild(item)})}
 
-function showFriendsTab(tab,btn){
-  currentFriendsTab=tab;
-  document.querySelectorAll('.friends-tab').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
-  if(tab==='list'){document.getElementById('friends-list-container').style.display='block';document.getElementById('friends-requests-container').style.display='none';document.getElementById('add-friend-section').style.display='flex'}
-  else{document.getElementById('friends-list-container').style.display='none';document.getElementById('friends-requests-container').style.display='block';document.getElementById('add-friend-section').style.display='none'}
-}
+function showFriendsTab(tab,btn){currentFriendsTab=tab;document.querySelectorAll('.friends-tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');if(tab==='list'){document.getElementById('friends-list-container').style.display='block';document.getElementById('friends-requests-container').style.display='none';document.getElementById('add-friend-section').style.display='flex'}else{document.getElementById('friends-list-container').style.display='none';document.getElementById('friends-requests-container').style.display='block';document.getElementById('add-friend-section').style.display='none'}}
 
-async function sendFriendRequest(){
-  const input=document.getElementById('add-friend-input'),fu=input.value.trim();
-  if(!fu)return;
-  try{
-    const r=await fetch('/api/send-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser,friendUsername:fu})}),
-          d=await r.json();
-    if(d.success){input.value='';alert('Sent!')}
-    else alert(d.error);
-  }catch(e){console.error(e);alert('Failed to send request')}
-}
+async function sendFriendRequest(){const input=document.getElementById('add-friend-input'),fu=input.value.trim();if(!fu)return;try{const r=await fetch('/api/send-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser,friendUsername:fu})}),d=await r.json();if(d.success){input.value='';alert(t('sentTo')+fu+'!')}else alert(d.error)}catch(e){console.error(e);alert('Failed to send request')}}
 
-async function handleFriendRequest(rf,action){
-  try{
-    const r=await fetch('/api/handle-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser,requestFrom:rf,action})}),
-          d=await r.json();
-    if(d.success){await loadFriendRequests();await loadFriends();if(action==='accept')alert('Added!')}
-  }catch(e){console.error(e)}
-}
+async function handleFriendRequest(rf,action){try{const r=await fetch('/api/handle-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser,requestFrom:rf,action})}),d=await r.json();if(d.success){await loadFriendRequests();await loadFriends();if(action==='accept')alert(t('added'))}}catch(e){console.error(e)}}
 
-async function removeFriend(fu){
-  if(!confirm('Remove '+fu+'?'))return;
-  try{
-    const r=await fetch('/api/handle-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser,requestFrom:fu,action:'decline'})}),
-          d=await r.json();
-    if(d.success)await loadFriends();
-  }catch(e){console.error(e)}
-}
+async function removeFriend(fu){if(!confirm(t('removeConfirm')+fu+t('fromFriends')))return;try{const r=await fetch('/api/handle-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser,requestFrom:fu,action:'decline'})}),d=await r.json();if(d.success)await loadFriends()}catch(e){console.error(e)}}
 
-function inviteFriend(fu){if(!roomCode)return alert('In room first');socket.emit('invite_friend',{friendUsername:fu});alert('Sent to '+fu+'!')}
+function inviteFriend(fu){if(!roomCode)return alert(t('inRoomFirst'));socket.emit('invite_friend',{friendUsername:fu});alert(t('sentTo')+fu+'!')}
 function showFriendsModal(){document.getElementById('friends-modal').classList.add('active');loadFriends();loadFriendRequests();showFriendsTab('list',document.querySelectorAll('.friends-tab')[0])}
 function closeFriendsModal(){document.getElementById('friends-modal').classList.remove('active')}
 
 function showForgotPasswordModal(){document.getElementById('forgot-password-modal').classList.add('active');document.getElementById('forgot-step-1').style.display='block';document.getElementById('forgot-step-2').style.display='none';document.getElementById('forgot-error').textContent='';document.getElementById('reset-code-sent').style.display='none'}
 
-async function sendResetCode(){
-  const u=document.getElementById('forgot-username').value.trim(),ed=document.getElementById('forgot-error');
-  if(!u){ed.textContent='Required';return}
-  try{
-    const r=await fetch('/api/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u})}),
-          d=await r.json();
-    if(d.success){document.getElementById('forgot-step-1').style.display='none';document.getElementById('forgot-step-2').style.display='block';document.getElementById('reset-code-sent').style.display='block';ed.textContent=''}
-    else ed.textContent=d.error;
-  }catch(e){ed.textContent='Failed'}
-}
+async function sendResetCode(){const u=document.getElementById('forgot-username').value.trim(),ed=document.getElementById('forgot-error');if(!u){ed.textContent='Required';return}try{const r=await fetch('/api/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u})}),d=await r.json();if(d.success){document.getElementById('forgot-step-1').style.display='none';document.getElementById('forgot-step-2').style.display='block';document.getElementById('reset-code-sent').style.display='block';ed.textContent=''}else ed.textContent=d.error}catch(e){ed.textContent='Failed'}}
 
-async function resetPassword(){
-  const u=document.getElementById('forgot-username').value.trim(),c=document.getElementById('reset-code').value.trim(),np=document.getElementById('new-password').value,ed=document.getElementById('forgot-error');
-  if(!c||!np){ed.textContent='Required';return}
-  try{
-    const r=await fetch('/api/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,code:c,newPassword:np})}),
-          d=await r.json();
-    if(d.success){alert('Reset!');closeForgotPasswordModal();document.getElementById('reset-code').value='';document.getElementById('new-password').value=''}
-    else ed.textContent=d.error;
-  }catch(e){ed.textContent='Failed'}
-}
+async function resetPassword(){const u=document.getElementById('forgot-username').value.trim(),c=document.getElementById('reset-code').value.trim(),np=document.getElementById('new-password').value,ed=document.getElementById('forgot-error');if(!c||!np){ed.textContent='Required';return}try{const r=await fetch('/api/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,code:c,newPassword:np})}),d=await r.json();if(d.success){alert('Reset!');closeForgotPasswordModal();document.getElementById('reset-code').value='';document.getElementById('new-password').value=''}else ed.textContent=d.error}catch(e){ed.textContent='Failed'}}
 
-window.addEventListener('load',async()=>{
-  const su=localStorage.getItem('currentUser');
-  if(su){currentUser=su;try{await loadUserData();showScreen('main');socket.emit('user_logged_in',{username:su})}catch(e){localStorage.removeItem('currentUser');showScreen('auth')}}
-  else{const ru=localStorage.getItem('rememberedUser');if(ru){document.getElementById('login-username').value=ru;document.getElementById('remember-me').checked=true}showScreen('auth')}
-});
+window.addEventListener('load',async()=>{const su=localStorage.getItem('currentUser');if(su){currentUser=su;try{await loadUserData();showScreen('main');socket.emit('user_logged_in',{username:su})}catch(e){localStorage.removeItem('currentUser');showScreen('auth')}}else{const ru=localStorage.getItem('rememberedUser');if(ru){document.getElementById('login-username').value=ru;document.getElementById('remember-me').checked=true}showScreen('auth')}});
 </script>
 </body>
 </html>
