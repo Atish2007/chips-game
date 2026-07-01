@@ -135,7 +135,17 @@ socket.on('game_state_restored',state=>{
   if(state.state==='LOBBY'){showScreen('waiting');document.getElementById('display-room-code').textContent=state.roomCode;updatePlayersList(state.players,state.owner)}
   else if(state.state==='POISON_PHASE')startPoisonPhase(state.timeLeft||30);
   else if(state.state==='COIN_TOSS')showScreen('coin');
-  else if(state.state==='PLAYING'){startGameUI();updateTurnUI()}
+ else if(state.state==='PLAYING'){
+  startGameUI();
+  const cd=document.getElementById('game-chips');
+  // 🔥 FIX: فقط چیپس‌های خورده شده توسط خودمان
+  if(state.myEatenChips){
+    state.myEatenChips.forEach(idx=>{
+      if(cd.children[idx])cd.children[idx].classList.add('eaten');
+    });
+  }
+  updateTurnUI();
+}
   else if(state.state==='GAME_OVER')showScreen('gameover');
 });
 
@@ -150,23 +160,23 @@ socket.on('pause_coin_timer',()=>{});
 socket.on('start_coin_toss',()=>{clearPoisonTimer();showScreen('coin');const c=document.getElementById('coin');c.textContent='?';c.style.animation='none';setTimeout(()=>c.style.animation='flip 3s ease-out',10)});
 socket.on('coin_toss_result',({firstPlayerId,firstPlayerName})=>{const c=document.getElementById('coin');c.textContent=firstPlayerName;document.getElementById('coin-result').textContent=firstPlayerName+' starts!';setTimeout(()=>{isMyTurn=firstPlayerName===currentUser;startGameUI()},2000)});
 
-socket.on('chip_eaten',({chipIndex,playerId,isPoisoned,message,health,myEatenChips})=>{
+socket.on('chip_eaten',({chipIndex,playerId,isPoisoned,message,health})=>{
   const cd=document.getElementById('game-chips');
   const ch=cd.children[chipIndex];
-  if(ch)ch.classList.add('eaten');
+  // 🔥 FIX: فقط اگر خودمان خورده‌ایم، بلاک کن
+  if(playerId === socket.id && ch) {
+    ch.classList.add('eaten');
+  }
   const md=document.getElementById('game-message');
   if(playerId===socket.id){
-    // 🔥 FIX: Update my eaten chips list
-    if(myEatenChips) myEatenChipsList = myEatenChips;
     md.textContent=message;
     md.className='message '+(isPoisoned?'poisoned':'safe');
     setTimeout(()=>{md.textContent='';md.className='message'},2000);
   }
-  // 🔥 FIX: Update health immediately for both players
   if(health){
-    if(health[socket.id]!==undefined) myHealth=health[socket.id];
+    if(health[socket.id]!==undefined)myHealth=health[socket.id];
     const opId=Object.keys(health).find(id=>id!==socket.id);
-    if(opId&&health[opId]!==undefined) opponentHealth=health[opId];
+    if(opId&&health[opId]!==undefined)opponentHealth=health[opId];
     updateHealth();
     updateOpponentHealth();
   }
