@@ -315,58 +315,31 @@ io.on('connection', (socket) => {
   function startCoinToss(room) { room.state = 'COIN_TOSS'; emitToRoom(room, 'start_coin_toss', {}); setTimeout(() => { if (!rooms[room.code]) return; const firstPlayerIndex = Math.random() < 0.5 ? 0 : 1; room.currentTurn = room.players[firstPlayerIndex].id; room.state = 'PLAYING'; room.health = {}; room.eatenChips = {}; room.poisonStartTime = null; room.players.forEach(p => { room.health[p.id] = 3; room.eatenChips[p.id] = []; }); emitToRoom(room, 'coin_toss_result', { firstPlayerId: room.currentTurn, firstPlayerName: room.players[firstPlayerIndex].username, firstPlayerIndex: firstPlayerIndex }); }, 3000); }
 
   socket.on('eat_chip', ({ chipIndex }) => {
-  const room = rooms[socket.roomCode];
-  if (!room || room.state !== 'PLAYING' || room.currentTurn !== socket.id) return;
-  if (!room.eatenChips[socket.id]) room.eatenChips[socket.id] = [];
-  if (room.eatenChips[socket.id].includes(chipIndex)) return;
-  
-  const opponent = room.players.find(p => p.id !== socket.id);
-  const opponentPoisons = room.poisons[opponent.id];
-  const isPoisoned = opponentPoisons.includes(chipIndex);
-  
-  room.eatenChips[socket.id].push(chipIndex);
-  
-  // 🔥 FIX: ارسال جان هر دو پلیر بلافاصله
-  const healthUpdate = {
-    [socket.id]: room.health[socket.id],
-    [opponent.id]: room.health[opponent.id]
-  };
-  
-  emitToRoom(room, 'chip_eaten', {
-    chipIndex,
-    playerId: socket.id,
-    isPoisoned,
-    message: isPoisoned ? 'You Got Poisened!' : 'You Are Safe!',
-    health: healthUpdate
-  });
-  
-  if (isPoisoned) {
-    room.health[socket.id]--;
-    
-    // 🔥 FIX: ارسال جان آپدیت شده بعد از کم شدن
-    const newHealthUpdate = {
-      [socket.id]: room.health[socket.id],
-      [opponent.id]: room.health[opponent.id]
-    };
-    
-    if (room.health[socket.id] <= 0) {
-      room.state = 'GAME_OVER';
-      const winner = opponent.username;
-      const loser = room.players.find(p => p.id === socket.id).username;
-      if (users[winner]) { users[winner].wins++; users[winner].activeRoom = null; }
-      if (users[loser]) { users[loser].losses++; users[loser].activeRoom = null; }
-      saveUsers(users);
-      emitToRoom(room, 'game_over', { winnerId: opponent.id, winnerName: winner, loserId: socket.id, loserName: loser });
-      return;
+    const room = rooms[socket.roomCode];
+    if (!room || room.state !== 'PLAYING' || room.currentTurn !== socket.id) return;
+    if (!room.eatenChips[socket.id]) room.eatenChips[socket.id] = [];
+    if (room.eatenChips[socket.id].includes(chipIndex)) return;
+    const opponent = room.players.find(p => p.id !== socket.id);
+    const opponentPoisons = room.poisons[opponent.id];
+    const isPoisoned = opponentPoisons.includes(chipIndex);
+    room.eatenChips[socket.id].push(chipIndex);
+    emitToRoom(room, 'chip_eaten', { chipIndex, playerId: socket.id, isPoisoned, message: isPoisoned ? 'You Got Poisened!' : 'You Are Safe!', health: { [socket.id]: room.health[socket.id] - (isPoisoned ? 1 : 0), [opponent.id]: room.health[opponent.id] } });
+    if (isPoisoned) {
+      room.health[socket.id]--;
+      if (room.health[socket.id] <= 0) {
+        room.state = 'GAME_OVER';
+        const winner = opponent.username;
+        const loser = room.players.find(p => p.id === socket.id).username;
+        if (users[winner]) { users[winner].wins++; users[winner].activeRoom = null; }
+        if (users[loser]) { users[loser].losses++; users[loser].activeRoom = null; }
+        saveUsers(users);
+        emitToRoom(room, 'game_over', { winnerId: opponent.id, winnerName: winner, loserId: socket.id, loserName: loser });
+        return;
+      }
     }
-    
-    // 🔥 ارسال جان جدید به همه
-    emitToRoom(room, 'health_updated', newHealthUpdate);
-  }
-  
-  room.currentTurn = opponent.id;
-  emitToRoom(room, 'turn_changed', { nextPlayerId: opponent.id, health: { [socket.id]: room.health[socket.id], [opponent.id]: room.health[opponent.id] } });
-});
+    room.currentTurn = opponent.id;
+    emitToRoom(room, 'turn_changed', { nextPlayerId: opponent.id, health: { [socket.id]: room.health[socket.id], [opponent.id]: room.health[opponent.id] } });
+  });
 
   socket.on('play_again', () => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'GAME_OVER') return; room.playAgainVotes[socket.id] = true; const votesCount = Object.keys(room.playAgainVotes).length; emitToRoom(room, 'play_again_update', { votesCount }); if (votesCount === 2) { room.state = 'POISON_PHASE'; room.poisons = {}; room.health = {}; room.eatenChips = {}; room.playAgainVotes = {}; room.currentTurn = null; room.poisonStartTime = Date.now(); room.poisonDuration = 30; room.players.forEach(p => { if (users[p.username]) users[p.username].activeRoom = room.code; }); saveUsers(users); emitToRoom(room, 'restart_game', {}); } });
 
