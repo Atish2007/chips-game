@@ -1,76 +1,1070 @@
-const express=require('express'),http=require('http'),{Server}=require('socket.io'),cors=require('cors'),path=require('path'),bcrypt=require('bcrypt'),fs=require('fs'),nodemailer=require('nodemailer'),app=express();
-app.use(cors());app.use(express.json({limit:'10mb'}));app.use(express.static(path.join(__dirname,'public')));
-const server=http.createServer(app),io=new Server(server,{cors:{origin:"*",methods:["GET","POST"]}}),rooms={},RECONNECT_TIMEOUT=30000,USERS_FILE=path.join(__dirname,'users.json'),connectedUsers={},emailVerificationTokens={},passwordResetTokens={};
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const path = require('path');
+const bcrypt = require('bcrypt');
+const fs = require('fs');
+const nodemailer = require('nodemailer');
 
-function loadUsers(){try{if(fs.existsSync(USERS_FILE)){const data=JSON.parse(fs.readFileSync(USERS_FILE,'utf8'));for(let key in data){if(!data[key].friends)data[key].friends=[];if(!data[key].friendRequests)data[key].friendRequests=[];if(data[key].emailVerified===undefined)data[key].emailVerified=false}return data}}catch(e){console.error('[DB]',e)}return{}}
-function saveUsers(u){try{fs.writeFileSync(USERS_FILE,JSON.stringify(u,null,2),'utf8')}catch(e){console.error('[DB]',e)}}
-let users=loadUsers();
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-function sendEmail(to,subject,html){const u=process.env.GMAIL_USER,p=process.env.GMAIL_APP_PASSWORD;if(!u||!p)throw new Error('Email not configured');const t=nodemailer.createTransport({service:'gmail',auth:{user:u,pass:p}});return t.sendMail({from:`"Chips Game" <${u}>`,to,subject,html})}
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 
-app.post('/api/register',async(req,res)=>{const{username,password,email}=req.body;if(!username||!password||!email)return res.status(400).json({error:'All fields required'});const er=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;if(!er.test(email))return res.status(400).json({error:'Invalid email'});const nu=username.toLowerCase(),ne=email.toLowerCase();if(nu.length<3||nu.length>20)return res.status(400).json({error:'Username 3-20 chars'});if(password.length<6)return res.status(400).json({error:'Password min 6 chars'});if(users[nu])return res.status(400).json({error:'Username exists'});if(Object.values(users).some(u=>u.email===ne))return res.status(400).json({error:'Email registered'});try{const hp=await bcrypt.hash(password,10);users[nu]={password:hp,wins:0,losses:0,activeRoom:null,createdAt:new Date().toISOString(),email:ne,emailVerified:false,avatar:null,language:'en',friends:[],friendRequests:[]};saveUsers(users);const code=Math.floor(100000+Math.random()*900000).toString();emailVerificationTokens[nu]={code,expiresAt:Date.now()+600000};try{await sendEmail(ne,'Verify Email - Chips Game',`<div style="font-family:Arial;text-align:center"><h2>Welcome!</h2><p>Code:</p><h1 style="color:#667eea">${code}</h1><p>Expires in 10 min</p></div>`);console.log(`[Email] Sent to ${ne}`)}catch(e){console.error('[Email]',e.message)}res.json({success:true,username:nu})}catch(e){res.status(500).json({error:'Failed'})}});
+const rooms = {};
+const RECONNECT_TIMEOUT = 30000;
+const USERS_FILE = path.join(__dirname, 'users.json');
+const connectedUsers = {};
+const emailVerificationTokens = {};
+const passwordResetTokens = {};
 
-app.post('/api/verify-email',(req,res)=>{const{username,code}=req.body,nu=username.toLowerCase(),t=emailVerificationTokens[nu];if(!t||Date.now()>t.expiresAt||t.code!==code)return res.status(400).json({error:'Invalid/expired'});if(users[nu]){users[nu].emailVerified=true;saveUsers(users)}delete emailVerificationTokens[nu];res.json({success:true})});
+// ==================== DATABASE ====================
+function loadUsers() {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+      for (let key in data) {
+        if (!data[key].friends) data[key].friends = [];
+        if (!data[key].friendRequests) data[key].friendRequests = [];
+        if (data[key].emailVerified === undefined) data[key].emailVerified = false;
+        if (!data[key].avatar) data[key].avatar = null;
+        if (!data[key].language) data[key].language = 'en';
+      }
+      return data;
+    }
+  } catch (error) {
+    console.error('[DB] Error:', error);
+  }
+  return {};
+}
 
-app.post('/api/login',async(req,res)=>{const{username,password}=req.body;if(!username||!password)return res.status(400).json({error:'Required'});const nu=username.toLowerCase(),u=users[nu];if(!u)return res.status(401).json({error:'Invalid'});try{const v=await bcrypt.compare(password,u.password);if(!v)return res.status(401).json({error:'Invalid'});if(u.activeRoom&&!rooms[u.activeRoom]){u.activeRoom=null;saveUsers(users)}res.json({success:true,username:nu,stats:{wins:u.wins,losses:u.losses},activeRoom:u.activeRoom,email:u.email||null,emailVerified:u.emailVerified||false,avatar:u.avatar||null,language:u.language||'en'})}catch(e){res.status(500).json({error:'Failed'})}});
+function saveUsers(users) {
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+  } catch (error) {
+    console.error('[DB] Error:', error);
+  }
+}
 
-app.get('/api/user/:username',(req,res)=>{const nu=req.params.username.toLowerCase(),u=users[nu];if(!u)return res.status(404).json({error:'Not found'});if(u.activeRoom&&!rooms[u.activeRoom]){u.activeRoom=null;saveUsers(users)}res.json({username:nu,stats:{wins:u.wins,losses:u.losses},activeRoom:u.activeRoom,email:u.email||null,emailVerified:u.emailVerified||false,avatar:u.avatar||null,language:u.language||'en'})});
+let users = loadUsers();
 
-app.post('/api/update-profile',(req,res)=>{const{username,avatar,language,email}=req.body,nu=username.toLowerCase();if(!users[nu])return res.status(404).json({error:'Not found'});if(avatar!==undefined)users[nu].avatar=avatar;if(language&&(language==='en'||language==='fa'))users[nu].language=language;if(email!==undefined){const er=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;if(!er.test(email))return res.status(400).json({error:'Invalid'});users[nu].email=email.toLowerCase();users[nu].emailVerified=false}saveUsers(users);res.json({success:true})});
+// ==================== AUTH ENDPOINTS ====================
+app.post('/api/register', async (req, res) => {
+  const { username, password, email } = req.body;
+  
+  // 🔥 FIX: ایمیل اجباری
+  if (!username || !password || !email) {
+    return res.status(400).json({ error: 'All fields required' });
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Invalid email' });
+  }
+  
+  const normalizedUsername = username.toLowerCase();
+  const normalizedEmail = email.toLowerCase();
+  
+  if (normalizedUsername.length < 3 || normalizedUsername.length > 20) {
+    return res.status(400).json({ error: 'Username must be 3-20 chars' });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password min 6 chars' });
+  }
+  if (users[normalizedUsername]) {
+    return res.status(400).json({ error: 'Username exists' });
+  }
+  
+  const emailTaken = Object.values(users).some(u => u.email === normalizedEmail);
+  if (emailTaken) {
+    return res.status(400).json({ error: 'Email already registered' });
+  }
+  
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    users[normalizedUsername] = {
+      password: hashedPassword,
+      wins: 0,
+      losses: 0,
+      activeRoom: null,
+      createdAt: new Date().toISOString(),
+      email: normalizedEmail,
+      emailVerified: false,
+      avatar: null,
+      language: 'en',
+      friends: [],
+      friendRequests: []
+    };
+    saveUsers(users);
+    console.log(`[Auth] New user: ${normalizedUsername}`);
+    res.json({ success: true, username: normalizedUsername });
+  } catch (error) {
+    console.error('[Auth] Error:', error);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
 
-app.get('/api/check-room/:roomCode',(req,res)=>res.json({exists:!!rooms[req.params.roomCode]}));
-app.post('/api/clear-active-room',(req,res)=>{const nu=req.body.username?.toLowerCase();if(nu&&users[nu]){users[nu].activeRoom=null;saveUsers(users)}res.json({success:true})});
+app.post('/api/verify-email', (req, res) => {
+  const { username, code } = req.body;
+  const normalizedUsername = username.toLowerCase();
+  const token = emailVerificationTokens[normalizedUsername];
+  
+  if (!token || Date.now() > token.expiresAt || token.code !== code) {
+    return res.status(400).json({ error: 'Invalid or expired code' });
+  }
+  
+  if (users[normalizedUsername]) {
+    users[normalizedUsername].emailVerified = true;
+    saveUsers(users);
+  }
+  
+  delete emailVerificationTokens[normalizedUsername];
+  console.log(`[Verify] Email verified for ${normalizedUsername}`);
+  res.json({ success: true });
+});
 
-app.post('/api/send-friend-request',(req,res)=>{const{username,friendUsername}=req.body,nu=username.toLowerCase(),nf=friendUsername.toLowerCase();if(nu===nf)return res.status(400).json({error:'Self'});if(!users[nu]||!users[nf])return res.status(404).json({error:'Not found'});users[nu].friends=users[nu].friends||[];users[nf].friends=users[nf].friends||[];users[nf].friendRequests=users[nf].friendRequests||[];if(users[nu].friends.includes(nf))return res.status(400).json({error:'Friends'});if(users[nf].friendRequests.includes(nu))return res.status(400).json({error:'Sent'});users[nf].friendRequests.push(nu);saveUsers(users);if(connectedUsers[nf])io.to(connectedUsers[nf].socketId).emit('friend_request_received',{from:nu});res.json({success:true})});
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+  
+  const normalizedUsername = username.toLowerCase();
+  const user = users[normalizedUsername];
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  
+  try {
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    if (user.activeRoom && !rooms[user.activeRoom]) {
+      user.activeRoom = null;
+      saveUsers(users);
+    }
+    
+    console.log(`[Auth] Login: ${normalizedUsername}`);
+    res.json({
+      success: true,
+      username: normalizedUsername,
+      stats: { wins: user.wins, losses: user.losses },
+      activeRoom: user.activeRoom,
+      email: user.email || null,
+      emailVerified: user.emailVerified || false,
+      avatar: user.avatar || null,
+      language: user.language || 'en'
+    });
+  } catch (error) {
+    console.error('[Auth] Error:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
 
-app.post('/api/handle-friend-request',(req,res)=>{const{username,requestFrom,action}=req.body,nu=username.toLowerCase(),nf=requestFrom.toLowerCase();if(!users[nu])return res.status(404).json({error:'Not found'});users[nu].friendRequests=users[nu].friendRequests||[];const i=users[nu].friendRequests.indexOf(nf);if(i===-1)return res.status(400).json({error:'Not found'});users[nu].friendRequests.splice(i,1);if(action==='accept'){users[nu].friends=users[nu].friends||[];users[nf].friends=users[nf].friends||[];if(!users[nu].friends.includes(nf))users[nu].friends.push(nf);if(!users[nf].friends.includes(nu))users[nf].friends.push(nu)}saveUsers(users);res.json({success:true})});
+app.get('/api/user/:username', (req, res) => {
+  const { username } = req.params;
+  const normalizedUsername = username.toLowerCase();
+  const user = users[normalizedUsername];
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  if (user.activeRoom && !rooms[user.activeRoom]) {
+    user.activeRoom = null;
+    saveUsers(users);
+  }
+  
+  res.json({
+    username: normalizedUsername,
+    stats: { wins: user.wins, losses: user.losses },
+    activeRoom: user.activeRoom,
+    email: user.email || null,
+    emailVerified: user.emailVerified || false,
+    avatar: user.avatar || null,
+    language: user.language || 'en'
+  });
+});
 
-app.get('/api/friend-requests/:username',(req,res)=>{const u=users[req.params.username.toLowerCase()];if(!u)return res.status(404).json({error:'Not found'});res.json({requests:u.friendRequests||[]})});
-app.get('/api/friends/:username',(req,res)=>{const u=users[req.params.username.toLowerCase()];if(!u)return res.status(404).json({error:'Not found'});res.json({friends:(u.friends||[]).map(f=>({username:f,status:connectedUsers[f]?connectedUsers[f].status:'offline'}))})});
+app.post('/api/update-profile', (req, res) => {
+  const { username, avatar, language, email } = req.body;
+  const normalizedUsername = username.toLowerCase();
+  
+  if (!users[normalizedUsername]) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  if (avatar !== undefined) users[normalizedUsername].avatar = avatar;
+  if (language && (language === 'en' || language === 'fa')) users[normalizedUsername].language = language;
+  if (email !== undefined) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email' });
+    }
+    users[normalizedUsername].email = email.toLowerCase();
+    users[normalizedUsername].emailVerified = false;
+  }
+  
+  saveUsers(users);
+  res.json({ success: true });
+});
 
-app.post('/api/forgot-password',async(req,res)=>{const nu=req.body.username?.toLowerCase(),u=users[nu];if(!nu)return res.status(400).json({error:'Required'});if(!u)return res.status(404).json({error:'Not found'});if(!u.email)return res.status(400).json({error:'No email'});const code=Math.floor(100000+Math.random()*900000).toString();passwordResetTokens[nu]={code,expiresAt:Date.now()+600000,email:u.email};try{await sendEmail(u.email,'Reset Code',`<div style="font-family:Arial;text-align:center"><h2>Chips Game</h2><p>Code:</p><h1>${code}</h1><p>10 min</p></div>`);res.json({success:true})}catch(e){res.status(500).json({error:'Failed'})}});
+app.get('/api/check-room/:roomCode', (req, res) => {
+  res.json({ exists: !!rooms[req.params.roomCode] });
+});
 
-app.post('/api/reset-password',async(req,res)=>{const{username,code,newPassword}=req.body,nu=username.toLowerCase(),t=passwordResetTokens[nu];if(!username||!code||!newPassword)return res.status(400).json({error:'Required'});if(!t||Date.now()>t.expiresAt||t.code!==code)return res.status(400).json({error:'Invalid'});if(newPassword.length<6)return res.status(400).json({error:'Short'});try{users[nu].password=await bcrypt.hash(newPassword,10);saveUsers(users);delete passwordResetTokens[nu];res.json({success:true})}catch(e){res.status(500).json({error:'Failed'})}});
+app.post('/api/clear-active-room', (req, res) => {
+  const { username } = req.body;
+  if (!username) {
+    return res.status(400).json({ error: 'Username required' });
+  }
+  const normalizedUsername = username.toLowerCase();
+  if (users[normalizedUsername]) {
+    users[normalizedUsername].activeRoom = null;
+    saveUsers(users);
+  }
+  res.json({ success: true });
+});
 
-function genCode(){return Math.random().toString(36).substring(2,7).toUpperCase()}
-function findP(r,u){return r.players.find(p=>p.username===u)}
-function broadcast(r){io.to(r.code).emit('update_players_list',{players:r.players.map(p=>({id:p.id,username:p.username,ready:p.ready,isOwner:p.username===r.owner,avatar:p.avatar})),owner:r.owner})}
-function emit(r,e,d){r.players.forEach(p=>io.to(p.id).emit(e,d))}
-function updateFS(u,s){if(connectedUsers[u]){connectedUsers[u].status=s;const usr=users[u];if(usr&&usr.friends)usr.friends.forEach(f=>{if(connectedUsers[f])io.to(connectedUsers[f].socketId).emit('friend_status_update',{username:u,status:s})})}}
+// ==================== FRIEND SYSTEM ====================
+app.post('/api/send-friend-request', (req, res) => {
+  const { username, friendUsername } = req.body;
+  
+  // 🔥 FIX: چک کردن پارامترها
+  if (!username || !friendUsername) {
+    console.log('[Friend] Missing params:', { username, friendUsername });
+    return res.status(400).json({ error: 'Usernames required' });
+  }
+  
+  const normalizedUser = username.toLowerCase();
+  const normalizedFriend = friendUsername.toLowerCase();
+  
+  if (normalizedUser === normalizedFriend) {
+    return res.status(400).json({ error: 'Cannot add yourself' });
+  }
+  
+  if (!users[normalizedUser] || !users[normalizedFriend]) {
+    console.log('[Friend] User not found:', { normalizedUser, normalizedFriend });
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  users[normalizedUser].friends = users[normalizedUser].friends || [];
+  users[normalizedFriend].friends = users[normalizedFriend].friends || [];
+  users[normalizedFriend].friendRequests = users[normalizedFriend].friendRequests || [];
+  
+  if (users[normalizedUser].friends.includes(normalizedFriend)) {
+    return res.status(400).json({ error: 'Already friends' });
+  }
+  
+  if (users[normalizedFriend].friendRequests.includes(normalizedUser)) {
+    return res.status(400).json({ error: 'Request already sent' });
+  }
+  
+  users[normalizedFriend].friendRequests.push(normalizedUser);
+  saveUsers(users);
+  
+  if (connectedUsers[normalizedFriend]) {
+    io.to(connectedUsers[normalizedFriend].socketId).emit('friend_request_received', { from: normalizedUser });
+  }
+  
+  console.log(`[Friends] ${normalizedUser} -> ${normalizedFriend}`);
+  res.json({ success: true });
+});
 
-io.on('connection',socket=>{
-socket.on('user_logged_in',({username})=>{connectedUsers[username]={socketId:socket.id,status:'main'};socket.username=username;const u=users[username];if(u&&u.friends)u.friends.forEach(f=>{if(connectedUsers[f])io.to(connectedUsers[f].socketId).emit('friend_status_update',{username,status:'main'})})});
+app.post('/api/handle-friend-request', (req, res) => {
+  const { username, requestFrom, action } = req.body;
+  
+  if (!username || !requestFrom || !action) {
+    return res.status(400).json({ error: 'Missing fields' });
+  }
+  
+  const normalizedUser = username.toLowerCase();
+  const normalizedFrom = requestFrom.toLowerCase();
+  
+  if (!users[normalizedUser]) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  users[normalizedUser].friendRequests = users[normalizedUser].friendRequests || [];
+  const reqIndex = users[normalizedUser].friendRequests.indexOf(normalizedFrom);
+  
+  if (reqIndex === -1) {
+    return res.status(400).json({ error: 'Request not found' });
+  }
+  
+  users[normalizedUser].friendRequests.splice(reqIndex, 1);
+  
+  if (action === 'accept') {
+    users[normalizedUser].friends = users[normalizedUser].friends || [];
+    users[normalizedFrom].friends = users[normalizedFrom].friends || [];
+    
+    if (!users[normalizedUser].friends.includes(normalizedFrom)) {
+      users[normalizedUser].friends.push(normalizedFrom);
+    }
+    if (!users[normalizedFrom].friends.includes(normalizedUser)) {
+      users[normalizedFrom].friends.push(normalizedUser);
+    }
+  }
+  
+  saveUsers(users);
+  res.json({ success: true });
+});
 
-socket.on('chip_preview',({chipIndex})=>{const r=rooms[socket.roomCode];if(!r||r.state!=='PLAYING')return;const o=r.players.find(p=>p.id!==socket.id);if(o)io.to(o.id).emit('opponent_chip_preview',{chipIndex,playerId:socket.id})});
-socket.on('chip_preview_cleared',()=>{const r=rooms[socket.roomCode];if(!r)return;const o=r.players.find(p=>p.id!==socket.id);if(o)io.to(o.id).emit('opponent_chip_preview_cleared',{playerId:socket.id})});
-socket.on('invite_friend',({friendUsername})=>{const nf=friendUsername.toLowerCase();if(connectedUsers[nf]&&socket.roomCode)io.to(connectedUsers[nf].socketId).emit('friend_invite',{from:socket.username,roomCode:socket.roomCode})});
+app.get('/api/friend-requests/:username', (req, res) => {
+  const { username } = req.params;
+  const normalizedUsername = username.toLowerCase();
+  const user = users[normalizedUsername];
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  res.json({ requests: user.friendRequests || [] });
+});
 
-socket.on('reconnect_to_game',({roomCode:rc,username})=>{const r=rooms[rc];if(!r){if(users[username]){users[username].activeRoom=null;saveUsers(users)}return socket.emit('reconnect_failed',{message:'Not found'})}const p=findP(r,username);if(!p){if(users[username]){users[username].activeRoom=null;saveUsers(users)}return socket.emit('reconnect_failed',{message:'Not in lobby'})}const os=p.id;p.id=socket.id;if(r.health[os]!==undefined){r.health[socket.id]=r.health[os];delete r.health[os]}if(r.eatenChips[os]!==undefined){r.eatenChips[socket.id]=r.eatenChips[os];delete r.eatenChips[os]}else r.eatenChips[socket.id]=[];if(r.poisons[os]!==undefined){r.poisons[socket.id]=r.poisons[os];delete r.poisons[os]}if(r.currentTurn===os)r.currentTurn=socket.id;socket.join(rc);socket.roomCode=rc;socket.playerIndex=r.players.findIndex(p=>p.id===socket.id);socket.username=username;if(r.reconnectTimeout){clearTimeout(r.reconnectTimeout);r.reconnectTimeout=null}socket.to(rc).emit('opponent_reconnected',{username});let rtl=30;if(r.state==='POISON_PHASE'&&r.poisonPaused){const ebp=(r.poisonPausedAt-r.poisonStartTime)/1000;rtl=Math.max(0,Math.ceil(r.poisonDuration-ebp));r.poisonStartTime=Date.now()-(ebp*1000);r.poisonPaused=false;r.poisonPausedAt=null;socket.to(rc).emit('resume_poison_timer',{timeLeft:rtl})}else if(r.state==='POISON_PHASE'&&r.poisonStartTime){const el=(Date.now()-r.poisonStartTime)/1000;rtl=Math.max(0,Math.ceil(r.poisonDuration-el))}broadcast(r);const ct=r.players.find(p=>p.id===r.currentTurn),op=r.players.find(p=>p.id!==socket.id);socket.emit('game_state_restored',{state:r.state,players:r.players.map(p=>({id:p.id,username:p.username,ready:p.ready,isOwner:p.username===r.owner,avatar:p.avatar})),owner:r.owner,myHealth:r.health[socket.id]||3,opponentHealth:op?(r.health[op.id]||3):3,currentTurnUsername:ct?ct.username:null,myEatenChips:r.eatenChips[socket.id]||[],roomCode:r.code,myUsername:username,timeLeft:rtl})});
+app.get('/api/friends/:username', (req, res) => {
+  const { username } = req.params;
+  const normalizedUsername = username.toLowerCase();
+  const user = users[normalizedUsername];
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  const friends = (user.friends || []).map(f => ({
+    username: f,
+    status: connectedUsers[f] ? connectedUsers[f].status : 'offline'
+  }));
+  
+  res.json({ friends });
+});
 
-socket.on('create_room',username=>{if(users[username]&&users[username].activeRoom){users[username].activeRoom=null;saveUsers(users)}const rc=genCode();rooms[rc]={code:rc,owner:username,players:[{id:socket.id,username,ready:false,avatar:users[username]?.avatar||null}],state:'LOBBY',poisons:{},health:{},eatenChips:{},currentTurn:null,timerInterval:null,playAgainVotes:{},reconnectTimeout:null,poisonStartTime:null,poisonDuration:30,poisonPaused:false,poisonPausedAt:null};socket.join(rc);socket.roomCode=rc;socket.playerIndex=0;socket.username=username;if(users[username]){users[username].activeRoom=rc;saveUsers(users)}updateFS(username,'room');socket.emit('room_created',{roomCode:rc,playerIndex:0,owner:username});broadcast(rooms[rc])});
+// ==================== FORGOT PASSWORD ====================
+app.post('/api/forgot-password', async (req, res) => {
+  const { username } = req.body;
+  if (!username) {
+    return res.status(400).json({ error: 'Username required' });
+  }
+  
+  const normalizedUsername = username.toLowerCase();
+  const user = users[normalizedUsername];
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  if (!user.email) {
+    return res.status(400).json({ error: 'No email registered' });
+  }
+  
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  passwordResetTokens[normalizedUsername] = { code, expiresAt: Date.now() + 10 * 60 * 1000, email: user.email };
+  
+  try {
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+      throw new Error('Email not configured');
+    }
+    
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD }
+    });
+    
+    await transporter.sendMail({
+      from: `"Chips Game" <${process.env.GMAIL_USER}>`,
+      to: user.email,
+      subject: 'Password Reset Code',
+      html: `<div style="font-family:Arial;text-align:center"><h2>Chips Game</h2><p>Your code:</p><h1>${code}</h1><p>Expires in 10 minutes.</p></div>`
+    });
+    
+    console.log(`[Email] Code sent to ${user.email}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Email] Error:', error);
+    res.status(500).json({ error: 'Failed to send email' });
+  }
+});
 
-socket.on('join_room',({roomCode:rc,username})=>{const r=rooms[rc];if(!r)return socket.emit('error',{message:'Not found'});if(r.players.length>=2)return socket.emit('error',{message:'Full'});if(users[username]&&users[username].activeRoom&&users[username].activeRoom!==rc){const or=rooms[users[username].activeRoom];if(or){const oi=or.players.findIndex(p=>p.username===username);if(oi!==-1){or.players.splice(oi,1);if(or.players.length===0)delete rooms[users[username].activeRoom];else{io.to(users[username].activeRoom).emit('player_left',{username});broadcast(or);if(or.owner===username&&or.players.length>0){or.owner=or.players[0].username;broadcast(or)}}}}users[username].activeRoom=null;saveUsers(users)}if(socket.roomCode&&rooms[socket.roomCode]){const or=rooms[socket.roomCode],oi=or.players.findIndex(p=>p.id===socket.id);if(oi!==-1){or.players.splice(oi,1);socket.leave(socket.roomCode);if(or.players.length===0)delete rooms[socket.roomCode];else{io.to(socket.roomCode).emit('player_left',{username});broadcast(or)}}}r.players.push({id:socket.id,username,ready:false,avatar:users[username]?.avatar||null});socket.join(rc);socket.roomCode=rc;socket.playerIndex=r.players.findIndex(p=>p.id===socket.id);socket.username=username;if(users[username]){users[username].activeRoom=rc;saveUsers(users)}updateFS(username,'room');emit(r,'player_joined',{players:r.players.map(p=>({id:p.id,username:p.username,avatar:p.avatar})),owner:r.owner});broadcast(r)});
+app.post('/api/reset-password', async (req, res) => {
+  const { username, code, newPassword } = req.body;
+  if (!username || !code || !newPassword) {
+    return res.status(400).json({ error: 'All fields required' });
+  }
+  
+  const normalizedUsername = username.toLowerCase();
+  const token = passwordResetTokens[normalizedUsername];
+  
+  if (!token || Date.now() > token.expiresAt || token.code !== code) {
+    return res.status(400).json({ error: 'Invalid or expired code' });
+  }
+  
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password too short' });
+  }
+  
+  try {
+    users[normalizedUsername].password = await bcrypt.hash(newPassword, 10);
+    saveUsers(users);
+    delete passwordResetTokens[normalizedUsername];
+    console.log(`[Auth] Password reset: ${normalizedUsername}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Auth] Error:', error);
+    res.status(500).json({ error: 'Failed to reset' });
+  }
+});
 
-socket.on('player_ready',()=>{const r=rooms[socket.roomCode];if(!r)return;const p=r.players.find(p=>p.id===socket.id);if(p)p.ready=!p.ready;broadcast(r)});
+// ==================== SOCKET.IO HELPERS ====================
+function generateRoomCode() {
+  return Math.random().toString(36).substring(2, 7).toUpperCase();
+}
 
-socket.on('start_game',()=>{const r=rooms[socket.roomCode];if(!r)return;if(r.owner!==socket.username)return socket.emit('error',{message:'Owner only'});if(r.players.length!==2||!r.players.every(p=>p.ready))return socket.emit('error',{message:'Both ready'});r.state='POISON_PHASE';r.poisonStartTime=Date.now();r.poisonDuration=30;r.poisons={};r.poisonPaused=false;r.poisonPausedAt=null;emit(r,'start_poison_phase',{duration:30})});
+function findPlayerByUsername(room, username) {
+  return room.players.find(p => p.username === username);
+}
 
-socket.on('submit_poisons',({poisonedChips})=>{const r=rooms[socket.roomCode];if(!r||r.state!=='POISON_PHASE')return;r.poisons[socket.id]=poisonedChips;if(Object.keys(r.poisons).length===2)startCoin(r)});
+function broadcastPlayersList(room) {
+  io.to(room.code).emit('update_players_list', {
+    players: room.players.map(p => ({
+      id: p.id,
+      username: p.username,
+      ready: p.ready,
+      isOwner: p.username === room.owner,
+      avatar: p.avatar
+    })),
+    owner: room.owner
+  });
+}
 
-socket.on('poison_time_up',()=>{const r=rooms[socket.roomCode];if(!r||r.state!=='POISON_PHASE')return;r.players.forEach(p=>{if(!r.poisons[p.id]){const ac=[0,1,2,3,4,5,6,7,8],rp=[];for(let i=0;i<3;i++){const ri=Math.floor(Math.random()*ac.length);rp.push(ac.splice(ri,1)[0])}r.poisons[p.id]=rp}});startCoin(r)});
+function emitToRoom(room, event, data) {
+  room.players.forEach(p => io.to(p.id).emit(event, data));
+}
 
-function startCoin(r){r.state='COIN_TOSS';emit(r,'start_coin_toss',{});setTimeout(()=>{if(!rooms[r.code])return;const fi=Math.random()<0.5?0:1;r.currentTurn=r.players[fi].id;r.state='PLAYING';r.health={};r.eatenChips={};r.poisonStartTime=null;r.players.forEach(p=>{r.health[p.id]=3;r.eatenChips[p.id]=[]});emit(r,'coin_toss_result',{firstPlayerId:r.currentTurn,firstPlayerName:r.players[fi].username,firstPlayerIndex:fi})},3000)}
+function updateFriendStatus(username, status) {
+  if (connectedUsers[username]) {
+    connectedUsers[username].status = status;
+    const user = users[username];
+    if (user && user.friends) {
+      user.friends.forEach(friend => {
+        if (connectedUsers[friend]) {
+          io.to(connectedUsers[friend].socketId).emit('friend_status_update', { username, status });
+        }
+      });
+    }
+  }
+}
 
-socket.on('eat_chip',({chipIndex})=>{const r=rooms[socket.roomCode];if(!r||r.state!=='PLAYING'||r.currentTurn!==socket.id)return;if(!r.eatenChips[socket.id])r.eatenChips[socket.id]=[];if(r.eatenChips[socket.id].includes(chipIndex))return;const op=r.players.find(p=>p.id!==socket.id),ois=r.poisons[op.id],ip=ois.includes(chipIndex);r.eatenChips[socket.id].push(chipIndex);emit(r,'chip_eaten',{chipIndex,playerId:socket.id,isPoisoned:ip,message:ip?'Poisoned!':'Safe!',health:{[socket.id]:r.health[socket.id]-(ip?1:0),[op.id]:r.health[op.id]}});if(ip){r.health[socket.id]--;if(r.health[socket.id]<=0){r.state='GAME_OVER';const w=op.username,l=r.players.find(p=>p.id===socket.id).username;if(users[w]){users[w].wins++;users[w].activeRoom=null}if(users[l]){users[l].losses++;users[l].activeRoom=null}saveUsers(users);emit(r,'game_over',{winnerId:op.id,winnerName:w,loserId:socket.id,loserName:l});return}}r.currentTurn=op.id;emit(r,'turn_changed',{nextPlayerId:op.id,health:{[socket.id]:r.health[socket.id],[op.id]:r.health[op.id]}})});
+// ==================== SOCKET.IO MAIN ====================
+io.on('connection', (socket) => {
+  console.log(`[+] Connected: ${socket.id}`);
 
-socket.on('play_again',()=>{const r=rooms[socket.roomCode];if(!r||r.state!=='GAME_OVER')return;r.playAgainVotes[socket.id]=true;const vc=Object.keys(r.playAgainVotes).length;emit(r,'play_again_update',{votesCount:vc});if(vc===2){r.state='POISON_PHASE';r.poisons={};r.health={};r.eatenChips={};r.playAgainVotes={};r.currentTurn=null;r.poisonStartTime=Date.now();r.poisonDuration=30;r.players.forEach(p=>{if(users[p.username])users[p.username].activeRoom=r.code});saveUsers(users);emit(r,'restart_game',{})}});
+  socket.on('user_logged_in', ({ username }) => {
+    connectedUsers[username] = { socketId: socket.id, status: 'main' };
+    socket.username = username;
+    const user = users[username];
+    if (user && user.friends) {
+      user.friends.forEach(friend => {
+        if (connectedUsers[friend]) {
+          io.to(connectedUsers[friend].socketId).emit('friend_status_update', { username, status: 'main' });
+        }
+      });
+    }
+    console.log(`[Friends] ${username} online`);
+  });
 
-socket.on('leave_room',()=>{if(!socket.roomCode||!rooms[socket.roomCode]||!socket.username)return;const r=rooms[socket.roomCode],pi=r.players.findIndex(p=>p.id===socket.id);if(pi===-1)return;const lp=r.players[pi];r.players.splice(pi,1);socket.leave(r.code);if(users[socket.username]){users[socket.username].activeRoom=null;saveUsers(users)}socket.roomCode=null;socket.playerIndex=-1;updateFS(socket.username,'main');if(r.players.length===0)delete rooms[r.code];else{socket.to(r.code).emit('player_left',{username:lp.username});broadcast(r);if(r.owner===lp.username&&r.players.length>0){r.owner=r.players[0].username;broadcast(r)}}});
+  socket.on('chip_preview', ({ chipIndex }) => {
+    const room = rooms[socket.roomCode];
+    if (!room || room.state !== 'PLAYING') return;
+    const opponent = room.players.find(p => p.id !== socket.id);
+    if (opponent) io.to(opponent.id).emit('opponent_chip_preview', { chipIndex, playerId: socket.id });
+  });
 
-socket.on('abandon_match',()=>{if(socket.username&&users[socket.username]){const or=users[socket.username].activeRoom;users[socket.username].activeRoom=null;users[socket.username].losses++;saveUsers(users);if(or&&rooms[or]){const r=rooms[or],op=r.players.find(p=>p.username!==socket.username);if(op){if(users[op.username]){users[op.username].wins++;users[op.username].activeRoom=null;saveUsers(users)}io.to(or).emit('opponent_abandoned',{username:socket.username,message:`${socket.username} abandoned. You win!`});r.state='GAME_OVER'}}socket.emit('match_abandoned',{success:true})}});
+  socket.on('chip_preview_cleared', () => {
+    const room = rooms[socket.roomCode];
+    if (!room) return;
+    const opponent = room.players.find(p => p.id !== socket.id);
+    if (opponent) io.to(opponent.id).emit('opponent_chip_preview_cleared', { playerId: socket.id });
+  });
 
-socket.on('abandon_match_during_game',()=>{const r=rooms[socket.roomCode];if(!r||r.state!=='PLAYING')return;const p=r.players.find(p=>p.id===socket.id);if(!p)return;if(users[p.username]){users[p.username].losses++;users[p.username].activeRoom=null;saveUsers(users)}const op=r.players.find(p=>p.id!==socket.id);if(op){if(users[op.username]){users[op.username].wins++;users[op.username].activeRoom=null;saveUsers(users)}emit(r,'game_over',{winnerId:op.id,winnerName:op.username,loserId:socket.id,loserName:p.username})}r.state='GAME_OVER'});
+  socket.on('invite_friend', ({ friendUsername }) => {
+    const normalizedFriend = friendUsername.toLowerCase();
+    if (connectedUsers[normalizedFriend] && socket.roomCode) {
+      io.to(connectedUsers[normalizedFriend].socketId).emit('friend_invite', { from: socket.username, roomCode: socket.roomCode });
+      console.log(`[Invite] ${socket.username} -> ${normalizedFriend}`);
+    }
+  });
 
-socket.on('disconnect',()=>{if(socket.username){const u=users[socket.username];if(u&&u.friends)u.friends.forEach(f=>{if(connectedUsers[f])io.to(connectedUsers[f].socketId).emit('friend_status_update',{username:socket.username,status:'offline'})});delete connectedUsers[socket.username]}if(!socket.roomCode||!rooms[socket.roomCode])return;const r=rooms[socket.roomCode],p=r.players.find(p=>p.id===socket.id);if(!p)return;if(r.state==='LOBBY'){const pi=r.players.findIndex(p=>p.id===socket.id);if(pi!==-1)r.players.splice(pi,1);if(users[p.username]){users[p.username].activeRoom=null;saveUsers(users)}if(r.players.length===0)delete rooms[socket.roomCode];else{socket.to(r.code).emit('player_left',{username:p.username});broadcast(r);if(r.owner===p.username&&r.players.length>0){r.owner=r.players[0].username;broadcast(r)}}return}if(r.state!=='GAME_OVER'){if(r.state==='POISON_PHASE'){r.poisonPaused=true;r.poisonPausedAt=Date.now();socket.to(r.code).emit('pause_poison_timer')}if(r.state==='COIN_TOSS')socket.to(r.code).emit('pause_coin_timer');socket.to(r.code).emit('start_disconnect_timer',{disconnectedUsername:p.username,timeout:RECONNECT_TIMEOUT/1000});socket.emit('start_disconnect_timer',{disconnectedUsername:p.username,timeout:RECONNECT_TIMEOUT/1000,isYou:true});r.reconnectTimeout=setTimeout(()=>{const op=r.players.find(p=>p.id!==socket.id);if(op){io.to(r.code).emit('opponent_lost',{message:`${p.username} disconnected. You win!`});if(users[op.username]){users[op.username].wins++;users[op.username].activeRoom=null;saveUsers(users)}}if(users[p.username]){users[p.username].losses++;users[p.username].activeRoom=null;saveUsers(users)}delete rooms[socket.roomCode]},RECONNECT_TIMEOUT)}else{socket.to(r.code).emit('opponent_disconnected',{username:p.username,timeout:0});if(users[p.username]){users[p.username].activeRoom=null;saveUsers(users)}delete rooms[socket.roomCode]}})});
+  socket.on('reconnect_to_game', ({ roomCode, username }) => {
+    const room = rooms[roomCode];
+    if (!room) {
+      if (users[username]) { users[username].activeRoom = null; saveUsers(users); }
+      return socket.emit('reconnect_failed', { message: 'Lobby not found' });
+    }
+    
+    const player = findPlayerByUsername(room, username);
+    if (!player) {
+      if (users[username]) { users[username].activeRoom = null; saveUsers(users); }
+      return socket.emit('reconnect_failed', { message: 'Not in this lobby' });
+    }
+    
+    const oldSocketId = player.id;
+    player.id = socket.id;
+    
+    if (room.health[oldSocketId] !== undefined) {
+      room.health[socket.id] = room.health[oldSocketId];
+      delete room.health[oldSocketId];
+    }
+    if (room.eatenChips[oldSocketId] !== undefined) {
+      room.eatenChips[socket.id] = room.eatenChips[oldSocketId];
+      delete room.eatenChips[oldSocketId];
+    } else {
+      room.eatenChips[socket.id] = [];
+    }
+    if (room.poisons[oldSocketId] !== undefined) {
+      room.poisons[socket.id] = room.poisons[oldSocketId];
+      delete room.poisons[oldSocketId];
+    }
+    if (room.currentTurn === oldSocketId) room.currentTurn = socket.id;
+    
+    socket.join(roomCode);
+    socket.roomCode = roomCode;
+    socket.playerIndex = room.players.findIndex(p => p.id === socket.id);
+    socket.username = username;
+    
+    console.log(`[Reconnect] ${username} -> ${roomCode}`);
+    
+    if (room.reconnectTimeout) {
+      clearTimeout(room.reconnectTimeout);
+      room.reconnectTimeout = null;
+    }
+    
+    socket.to(roomCode).emit('opponent_reconnected', { username });
+    
+    let restoredTimeLeft = 30;
+    if (room.state === 'POISON_PHASE' && room.poisonPaused) {
+      const elapsedBeforePause = (room.poisonPausedAt - room.poisonStartTime) / 1000;
+      restoredTimeLeft = Math.max(0, Math.ceil(room.poisonDuration - elapsedBeforePause));
+      room.poisonStartTime = Date.now() - (elapsedBeforePause * 1000);
+      room.poisonPaused = false;
+      room.poisonPausedAt = null;
+      socket.to(roomCode).emit('resume_poison_timer', { timeLeft: restoredTimeLeft });
+      console.log(`[Timer] Resumed with ${restoredTimeLeft}s`);
+    } else if (room.state === 'POISON_PHASE' && room.poisonStartTime) {
+      const elapsed = (Date.now() - room.poisonStartTime) / 1000;
+      restoredTimeLeft = Math.max(0, Math.ceil(room.poisonDuration - elapsed));
+    }
+    
+    broadcastPlayersList(room);
+    
+    const currentTurnPlayer = room.players.find(p => p.id === room.currentTurn);
+    const opponent = room.players.find(p => p.id !== socket.id);
+    
+    socket.emit('game_state_restored', {
+      state: room.state,
+      players: room.players.map(p => ({
+        id: p.id,
+        username: p.username,
+        ready: p.ready,
+        isOwner: p.username === room.owner,
+        avatar: p.avatar
+      })),
+      owner: room.owner,
+      myHealth: room.health[socket.id] || 3,
+      opponentHealth: opponent ? (room.health[opponent.id] || 3) : 3,
+      currentTurnUsername: currentTurnPlayer ? currentTurnPlayer.username : null,
+      myEatenChips: room.eatenChips[socket.id] || [],
+      roomCode: room.code,
+      myUsername: username,
+      timeLeft: restoredTimeLeft
+    });
+  });
 
-const PORT=process.env.PORT||3000;server.listen(PORT,'0.0.0.0',()=>console.log(`🚀 Server on ${PORT}`));
+  socket.on('create_room', (username) => {
+    if (users[username] && users[username].activeRoom) {
+      users[username].activeRoom = null;
+      saveUsers(users);
+    }
+    
+    const roomCode = generateRoomCode();
+    rooms[roomCode] = {
+      code: roomCode,
+      owner: username,
+      players: [{ id: socket.id, username, ready: false, avatar: users[username]?.avatar || null }],
+      state: 'LOBBY',
+      poisons: {},
+      health: {},
+      eatenChips: {},
+      currentTurn: null,
+      timerInterval: null,
+      playAgainVotes: {},
+      reconnectTimeout: null,
+      poisonStartTime: null,
+      poisonDuration: 30,
+      poisonPaused: false,
+      poisonPausedAt: null
+    };
+    
+    socket.join(roomCode);
+    socket.roomCode = roomCode;
+    socket.playerIndex = 0;
+    socket.username = username;
+    
+    if (users[username]) {
+      users[username].activeRoom = roomCode;
+      saveUsers(users);
+    }
+    
+    updateFriendStatus(username, 'room');
+    console.log(`[Room] ${roomCode} by ${username}`);
+    socket.emit('room_created', { roomCode, playerIndex: 0, owner: username });
+    broadcastPlayersList(rooms[roomCode]);
+  });
+
+  socket.on('join_room', ({ roomCode, username }) => {
+    const room = rooms[roomCode];
+    if (!room) return socket.emit('error', { message: 'Lobby not found' });
+    if (room.players.length >= 2) return socket.emit('error', { message: 'Lobby is full' });
+    
+    if (users[username] && users[username].activeRoom && users[username].activeRoom !== roomCode) {
+      const oldRoom = rooms[users[username].activeRoom];
+      if (oldRoom) {
+        const oldPlayerIndex = oldRoom.players.findIndex(p => p.username === username);
+        if (oldPlayerIndex !== -1) {
+          oldRoom.players.splice(oldPlayerIndex, 1);
+          if (oldRoom.players.length === 0) {
+            delete rooms[users[username].activeRoom];
+          } else {
+            io.to(users[username].activeRoom).emit('player_left', { username });
+            broadcastPlayersList(oldRoom);
+            if (oldRoom.owner === username && oldRoom.players.length > 0) {
+              oldRoom.owner = oldRoom.players[0].username;
+              broadcastPlayersList(oldRoom);
+            }
+          }
+        }
+      }
+      users[username].activeRoom = null;
+      saveUsers(users);
+    }
+    
+    if (socket.roomCode && rooms[socket.roomCode]) {
+      const oldRoom = rooms[socket.roomCode];
+      const oldPlayerIndex = oldRoom.players.findIndex(p => p.id === socket.id);
+      if (oldPlayerIndex !== -1) {
+        oldRoom.players.splice(oldPlayerIndex, 1);
+        socket.leave(socket.roomCode);
+        if (oldRoom.players.length === 0) {
+          delete rooms[socket.roomCode];
+        } else {
+          io.to(socket.roomCode).emit('player_left', { username });
+          broadcastPlayersList(oldRoom);
+        }
+      }
+    }
+    
+    room.players.push({ id: socket.id, username, ready: false, avatar: users[username]?.avatar || null });
+    socket.join(roomCode);
+    socket.roomCode = roomCode;
+    socket.playerIndex = room.players.findIndex(p => p.id === socket.id);
+    socket.username = username;
+    
+    if (users[username]) {
+      users[username].activeRoom = roomCode;
+      saveUsers(users);
+    }
+    
+    updateFriendStatus(username, 'room');
+    console.log(`[Room] ${username} joined ${roomCode}`);
+    
+    emitToRoom(room, 'player_joined', {
+      players: room.players.map(p => ({ id: p.id, username: p.username, avatar: p.avatar })),
+      owner: room.owner
+    });
+    
+    broadcastPlayersList(room);
+  });
+
+  socket.on('player_ready', () => {
+    const room = rooms[socket.roomCode];
+    if (!room) return;
+    const player = room.players.find(p => p.id === socket.id);
+    if (player) player.ready = !player.ready;
+    console.log(`[Ready] ${player.username}: ${player.ready}`);
+    broadcastPlayersList(room);
+  });
+
+  socket.on('start_game', () => {
+    const room = rooms[socket.roomCode];
+    if (!room) return;
+    console.log(`[Start] ${socket.username}, Owner: ${room.owner}, Players: ${room.players.length}`);
+    
+    if (room.owner !== socket.username) {
+      return socket.emit('error', { message: 'Only owner can start' });
+    }
+    if (room.players.length !== 2 || !room.players.every(p => p.ready)) {
+      return socket.emit('error', { message: 'Both players must be ready' });
+    }
+    
+    room.state = 'POISON_PHASE';
+    room.poisonStartTime = Date.now();
+    room.poisonDuration = 30;
+    room.poisons = {};
+    room.poisonPaused = false;
+    room.poisonPausedAt = null;
+    
+    console.log(`[Game] ${room.owner} started`);
+    emitToRoom(room, 'start_poison_phase', { duration: 30 });
+  });
+
+  socket.on('submit_poisons', ({ poisonedChips }) => {
+    const room = rooms[socket.roomCode];
+    if (!room || room.state !== 'POISON_PHASE') return;
+    
+    room.poisons[socket.id] = poisonedChips;
+    console.log(`[Poison] ${socket.id}, Count: ${Object.keys(room.poisons).length}`);
+    
+    if (Object.keys(room.poisons).length === 2) {
+      startCoinToss(room);
+    }
+  });
+
+  socket.on('poison_time_up', () => {
+    const room = rooms[socket.roomCode];
+    if (!room || room.state !== 'POISON_PHASE') return;
+    
+    room.players.forEach(p => {
+      if (!room.poisons[p.id]) {
+        const allChips = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+        const randomPoisons = [];
+        for (let i = 0; i < 3; i++) {
+          const randIndex = Math.floor(Math.random() * allChips.length);
+          randomPoisons.push(allChips.splice(randIndex, 1)[0]);
+        }
+        room.poisons[p.id] = randomPoisons;
+      }
+    });
+    
+    startCoinToss(room);
+  });
+
+  function startCoinToss(room) {
+    room.state = 'COIN_TOSS';
+    emitToRoom(room, 'start_coin_toss', {});
+    
+    setTimeout(() => {
+      if (!rooms[room.code]) return;
+      
+      const firstPlayerIndex = Math.random() < 0.5 ? 0 : 1;
+      room.currentTurn = room.players[firstPlayerIndex].id;
+      room.state = 'PLAYING';
+      
+      room.health = {};
+      room.eatenChips = {};
+      room.poisonStartTime = null;
+      
+      room.players.forEach(p => {
+        room.health[p.id] = 3;
+        room.eatenChips[p.id] = [];
+      });
+      
+      emitToRoom(room, 'coin_toss_result', {
+        firstPlayerId: room.currentTurn,
+        firstPlayerName: room.players[firstPlayerIndex].username,
+        firstPlayerIndex: firstPlayerIndex
+      });
+    }, 3000);
+  }
+
+  socket.on('eat_chip', ({ chipIndex }) => {
+    const room = rooms[socket.roomCode];
+    if (!room || room.state !== 'PLAYING' || room.currentTurn !== socket.id) return;
+    if (!room.eatenChips[socket.id]) room.eatenChips[socket.id] = [];
+    if (room.eatenChips[socket.id].includes(chipIndex)) return;
+    
+    const opponent = room.players.find(p => p.id !== socket.id);
+    const opponentPoisons = room.poisons[opponent.id];
+    const isPoisoned = opponentPoisons.includes(chipIndex);
+    
+    room.eatenChips[socket.id].push(chipIndex);
+    
+    emitToRoom(room, 'chip_eaten', {
+      chipIndex,
+      playerId: socket.id,
+      isPoisoned,
+      message: isPoisoned ? 'You Got Poisened!' : 'You Are Safe!',
+      health: {
+        [socket.id]: room.health[socket.id] - (isPoisoned ? 1 : 0),
+        [opponent.id]: room.health[opponent.id]
+      }
+    });
+    
+    if (isPoisoned) {
+      room.health[socket.id]--;
+      
+      if (room.health[socket.id] <= 0) {
+        room.state = 'GAME_OVER';
+        
+        const winner = opponent.username;
+        const loser = room.players.find(p => p.id === socket.id).username;
+        
+        if (users[winner]) { users[winner].wins++; users[winner].activeRoom = null; }
+        if (users[loser]) { users[loser].losses++; users[loser].activeRoom = null; }
+        saveUsers(users);
+        
+        emitToRoom(room, 'game_over', {
+          winnerId: opponent.id,
+          winnerName: winner,
+          loserId: socket.id,
+          loserName: loser
+        });
+        return;
+      }
+    }
+    
+    room.currentTurn = opponent.id;
+    emitToRoom(room, 'turn_changed', {
+      nextPlayerId: opponent.id,
+      health: {
+        [socket.id]: room.health[socket.id],
+        [opponent.id]: room.health[opponent.id]
+      }
+    });
+  });
+
+  socket.on('play_again', () => {
+    const room = rooms[socket.roomCode];
+    if (!room || room.state !== 'GAME_OVER') return;
+    
+    room.playAgainVotes[socket.id] = true;
+    const votesCount = Object.keys(room.playAgainVotes).length;
+    emitToRoom(room, 'play_again_update', { votesCount });
+    
+    if (votesCount === 2) {
+      room.state = 'POISON_PHASE';
+      room.poisons = {};
+      room.health = {};
+      room.eatenChips = {};
+      room.playAgainVotes = {};
+      room.currentTurn = null;
+      room.poisonStartTime = Date.now();
+      room.poisonDuration = 30;
+      
+      room.players.forEach(p => {
+        if (users[p.username]) users[p.username].activeRoom = room.code;
+      });
+      saveUsers(users);
+      
+      emitToRoom(room, 'restart_game', {});
+    }
+  });
+
+  socket.on('leave_room', () => {
+    if (!socket.roomCode || !rooms[socket.roomCode] || !socket.username) return;
+    
+    const room = rooms[socket.roomCode];
+    const playerIndex = room.players.findIndex(p => p.id === socket.id);
+    if (playerIndex === -1) return;
+    
+    const leavingPlayer = room.players[playerIndex];
+    console.log(`[Leave] ${leavingPlayer.username} from ${room.code}`);
+    
+    room.players.splice(playerIndex, 1);
+    socket.leave(room.code);
+    
+    if (users[socket.username]) {
+      users[socket.username].activeRoom = null;
+      saveUsers(users);
+    }
+    
+    socket.roomCode = null;
+    socket.playerIndex = -1;
+    updateFriendStatus(socket.username, 'main');
+    
+    if (room.players.length === 0) {
+      delete rooms[room.code];
+    } else {
+      socket.to(room.code).emit('player_left', { username: leavingPlayer.username });
+      broadcastPlayersList(room);
+      
+      if (room.owner === leavingPlayer.username && room.players.length > 0) {
+        room.owner = room.players[0].username;
+        broadcastPlayersList(room);
+      }
+    }
+  });
+
+  socket.on('abandon_match', () => {
+    if (socket.username && users[socket.username]) {
+      const oldRoom = users[socket.username].activeRoom;
+      users[socket.username].activeRoom = null;
+      users[socket.username].losses++;
+      saveUsers(users);
+      
+      if (oldRoom && rooms[oldRoom]) {
+        const room = rooms[oldRoom];
+        const opponent = room.players.find(p => p.username !== socket.username);
+        if (opponent) {
+          if (users[opponent.username]) {
+            users[opponent.username].wins++;
+            users[opponent.username].activeRoom = null;
+            saveUsers(users);
+          }
+          io.to(oldRoom).emit('opponent_abandoned', {
+            username: socket.username,
+            message: `${socket.username} abandoned. You win!`
+          });
+          room.state = 'GAME_OVER';
+        }
+      }
+      socket.emit('match_abandoned', { success: true });
+    }
+  });
+
+  socket.on('abandon_match_during_game', () => {
+    const room = rooms[socket.roomCode];
+    if (!room || room.state !== 'PLAYING') return;
+    
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+    
+    if (users[player.username]) {
+      users[player.username].losses++;
+      users[player.username].activeRoom = null;
+      saveUsers(users);
+    }
+    
+    const opponent = room.players.find(p => p.id !== socket.id);
+    if (opponent) {
+      if (users[opponent.username]) {
+        users[opponent.username].wins++;
+        users[opponent.username].activeRoom = null;
+        saveUsers(users);
+      }
+      emitToRoom(room, 'game_over', {
+        winnerId: opponent.id,
+        winnerName: opponent.username,
+        loserId: socket.id,
+        loserName: player.username
+      });
+    }
+    room.state = 'GAME_OVER';
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`[-] Disconnected: ${socket.id}`);
+    
+    if (socket.username) {
+      const user = users[socket.username];
+      if (user && user.friends) {
+        user.friends.forEach(friend => {
+          if (connectedUsers[friend]) {
+            io.to(connectedUsers[friend].socketId).emit('friend_status_update', {
+              username: socket.username,
+              status: 'offline'
+            });
+          }
+        });
+      }
+      delete connectedUsers[socket.username];
+    }
+    
+    if (!socket.roomCode || !rooms[socket.roomCode]) return;
+    
+    const room = rooms[socket.roomCode];
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+    
+    console.log(`[Disconnect] ${player.username} from ${room.code}. State: ${room.state}`);
+    
+    if (room.state === 'LOBBY') {
+      const playerIndex = room.players.findIndex(p => p.id === socket.id);
+      if (playerIndex !== -1) room.players.splice(playerIndex, 1);
+      
+      if (users[player.username]) {
+        users[player.username].activeRoom = null;
+        saveUsers(users);
+      }
+      
+      if (room.players.length === 0) {
+        delete rooms[socket.roomCode];
+      } else {
+        socket.to(room.code).emit('player_left', { username: player.username });
+        broadcastPlayersList(room);
+        
+        if (room.owner === player.username && room.players.length > 0) {
+          room.owner = room.players[0].username;
+          broadcastPlayersList(room);
+        }
+      }
+      return;
+    }
+    
+    if (room.state !== 'GAME_OVER') {
+      if (room.state === 'POISON_PHASE') {
+        room.poisonPaused = true;
+        room.poisonPausedAt = Date.now();
+        socket.to(room.code).emit('pause_poison_timer');
+      }
+      
+      if (room.state === 'COIN_TOSS') {
+        socket.to(room.code).emit('pause_coin_timer');
+      }
+      
+      socket.to(room.code).emit('start_disconnect_timer', {
+        disconnectedUsername: player.username,
+        timeout: RECONNECT_TIMEOUT / 1000
+      });
+      
+      socket.emit('start_disconnect_timer', {
+        disconnectedUsername: player.username,
+        timeout: RECONNECT_TIMEOUT / 1000,
+        isYou: true
+      });
+      
+      room.reconnectTimeout = setTimeout(() => {
+        const opponent = room.players.find(p => p.id !== socket.id);
+        
+        if (opponent) {
+          io.to(room.code).emit('opponent_lost', {
+            message: `${player.username} disconnected. You win!`
+          });
+          if (users[opponent.username]) {
+            users[opponent.username].wins++;
+            users[opponent.username].activeRoom = null;
+            saveUsers(users);
+          }
+        }
+        
+        if (users[player.username]) {
+          users[player.username].losses++;
+          users[player.username].activeRoom = null;
+          saveUsers(users);
+        }
+        
+        delete rooms[socket.roomCode];
+      }, RECONNECT_TIMEOUT);
+    } else {
+      socket.to(room.code).emit('opponent_disconnected', {
+        username: player.username,
+        timeout: 0
+      });
+      
+      if (users[player.username]) {
+        users[player.username].activeRoom = null;
+        saveUsers(users);
+      }
+      
+      delete rooms[socket.roomCode];
+    }
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server on port ${PORT}`);
+  console.log(`📁 Users: ${USERS_FILE}`);
+});
