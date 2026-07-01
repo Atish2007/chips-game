@@ -22,12 +22,10 @@ const connectedUsers = {};
 const emailVerificationTokens = {};
 const passwordResetTokens = {};
 
-// ==================== DATABASE ====================
 function loadUsers() {
   try {
     if (fs.existsSync(USERS_FILE)) {
       const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-      // 🔥 FIX Bug 2: Migration - Ensure all users have friends arrays
       for (let key in data) {
         if (!data[key].friends) data[key].friends = [];
         if (!data[key].friendRequests) data[key].friendRequests = [];
@@ -46,7 +44,18 @@ function saveUsers(users) {
 
 let users = loadUsers();
 
-// ==================== AUTH ENDPOINTS ====================
+// Helper to send email
+async function sendEmail(to, subject, html) {
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
+  if (!user || !pass) {
+    console.error('[Email] GMAIL_USER or GMAIL_APP_PASSWORD not set in environment variables!');
+    throw new Error('Email credentials missing');
+  }
+  const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  await transporter.sendMail({ from: `"Chips Game" <${user}>`, to, subject, html });
+}
+
 app.post('/api/register', async (req, res) => {
   const { username, password, email } = req.body;
   if (!username || !password || !email) return res.status(400).json({ error: 'All fields required' });
@@ -62,22 +71,18 @@ app.post('/api/register', async (req, res) => {
   
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    users[normalizedUsername] = { 
-      password: hashedPassword, wins: 0, losses: 0, activeRoom: null, 
-      createdAt: new Date().toISOString(), email: normalizedEmail, 
-      emailVerified: false, avatar: null, language: 'en', 
-      friends: [], friendRequests: [] 
-    };
+    users[normalizedUsername] = { password: hashedPassword, wins: 0, losses: 0, activeRoom: null, createdAt: new Date().toISOString(), email: normalizedEmail, emailVerified: false, avatar: null, language: 'en', friends: [], friendRequests: [] };
     saveUsers(users);
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     emailVerificationTokens[normalizedUsername] = { code, expiresAt: Date.now() + 10 * 60 * 1000 };
     
     try {
-      if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-        const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
-        await transporter.sendMail({ from: `"Chips Game" <${process.env.GMAIL_USER}>`, to: normalizedEmail, subject: 'Verify your email', html: `<div style="font-family:Arial;text-align:center"><h2>Welcome!</h2><p>Your verification code:</p><h1>${code}</h1></div>` });
-      }
-    } catch (e) { console.error('Email send error:', e); }
+      await sendEmail(normalizedEmail, 'Verify your email', `<div style="font-family:Arial;text-align:center"><h2>Welcome to Chips Game!</h2><p>Your verification code is:</p><h1 style="color:#667eea">${code}</h1><p>This code expires in 10 minutes.</p></div>`);
+      console.log(`[Email] Verification code sent to ${normalizedEmail}`);
+    } catch (e) { 
+      console.error('[Email] Failed to send verification:', e.message);
+      // Don't fail registration if email fails, but user won't be verified
+    }
     res.json({ success: true, username: normalizedUsername });
   } catch (error) { res.status(500).json({ error: 'Registration failed' }); }
 });
@@ -125,7 +130,7 @@ app.post('/api/update-profile', (req, res) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) return res.status(400).json({ error: 'Invalid email' });
     users[normalizedUsername].email = email.toLowerCase();
-    users[normalizedUsername].emailVerified = false; // Reset verification if email changes
+    users[normalizedUsername].emailVerified = false;
   }
   saveUsers(users);
   res.json({ success: true });
@@ -139,12 +144,27 @@ app.post('/api/handle-friend-request', (req, res) => { const { username, request
 app.get('/api/friend-requests/:username', (req, res) => { const { username } = req.params; const normalizedUsername = username.toLowerCase(); const user = users[normalizedUsername]; if (!user) return res.status(404).json({ error: 'User not found' }); res.json({ requests: user.friendRequests || [] }); });
 app.get('/api/friends/:username', (req, res) => { const { username } = req.params; const normalizedUsername = username.toLowerCase(); const user = users[normalizedUsername]; if (!user) return res.status(404).json({ error: 'User not found' }); const friends = (user.friends || []).map(f => ({ username: f, status: connectedUsers[f] ? connectedUsers[f].status : 'offline' })); res.json({ friends }); });
 
-app.post('/api/forgot-password', async (req, res) => { const { username } = req.body; if (!username) return res.status(400).json({ error: 'Username required' }); const normalizedUsername = username.toLowerCase(); const user = users[normalizedUsername]; if (!user) return res.status(404).json({ error: 'User not found' }); if (!user.email) return res.status(400).json({ error: 'No email registered' }); const code = Math.floor(100000 + Math.random() * 900000).toString(); passwordResetTokens[normalizedUsername] = { code, expiresAt: Date.now() + 10 * 60 * 1000, email: user.email }; try { if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) throw new Error('Email not configured'); const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } }); await transporter.sendMail({ from: `"Chips Game" <${process.env.GMAIL_USER}>`, to: user.email, subject: 'Password Reset Code', html: `<div style="font-family:Arial;text-align:center"><h2>Chips Game</h2><p>Your code:</p><h1>${code}</h1><p>Expires in 10 minutes.</p></div>` }); res.json({ success: true }); } catch (error) { res.status(500).json({ error: 'Failed to send email' }); } });
+app.post('/api/forgot-password', async (req, res) => {
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ error: 'Username required' });
+  const normalizedUsername = username.toLowerCase();
+  const user = users[normalizedUsername];
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (!user.email) return res.status(400).json({ error: 'No email registered' });
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  passwordResetTokens[normalizedUsername] = { code, expiresAt: Date.now() + 10 * 60 * 1000, email: user.email };
+  try {
+    await sendEmail(user.email, 'Password Reset Code', `<div style="font-family:Arial;text-align:center"><h2>Chips Game</h2><p>Your password reset code is:</p><h1 style="color:#f5576c">${code}</h1><p>This code expires in 10 minutes.</p></div>`);
+    console.log(`[Email] Reset code sent to ${user.email}`);
+    res.json({ success: true });
+  } catch (error) { console.error('[Email] Reset failed:', error.message); res.status(500).json({ error: 'Failed to send email. Check server logs.' }); }
+});
+
 app.post('/api/reset-password', async (req, res) => { const { username, code, newPassword } = req.body; if (!username || !code || !newPassword) return res.status(400).json({ error: 'All fields required' }); const normalizedUsername = username.toLowerCase(); const token = passwordResetTokens[normalizedUsername]; if (!token || Date.now() > token.expiresAt || token.code !== code) return res.status(400).json({ error: 'Invalid or expired code' }); if (newPassword.length < 6) return res.status(400).json({ error: 'Password too short' }); try { users[normalizedUsername].password = await bcrypt.hash(newPassword, 10); saveUsers(users); delete passwordResetTokens[normalizedUsername]; res.json({ success: true }); } catch (error) { res.status(500).json({ error: 'Failed to reset' }); } });
 
 function generateRoomCode() { return Math.random().toString(36).substring(2, 7).toUpperCase(); }
 function findPlayerByUsername(room, username) { return room.players.find(p => p.username === username); }
-function broadcastPlayersList(room) { io.to(room.code).emit('update_players_list', { players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, isOwner: p.username === room.owner })), owner: room.owner }); }
+function broadcastPlayersList(room) { io.to(room.code).emit('update_players_list', { players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, isOwner: p.username === room.owner, avatar: p.avatar })), owner: room.owner }); }
 function emitToRoom(room, event, data) { room.players.forEach(p => io.to(p.id).emit(event, data)); }
 function updateFriendStatus(username, status) { if (connectedUsers[username]) { connectedUsers[username].status = status; const user = users[username]; if (user && user.friends) user.friends.forEach(friend => { if (connectedUsers[friend]) io.to(connectedUsers[friend].socketId).emit('friend_status_update', { username, status }); }); } }
 
@@ -168,8 +188,8 @@ io.on('connection', (socket) => {
     if (room.reconnectTimeout) { clearTimeout(room.reconnectTimeout); room.reconnectTimeout = null; }
     socket.to(roomCode).emit('opponent_reconnected', { username });
     
-    // 🔥 FIX Bug 5: Only resume poison if state is STILL poison phase
     let restoredTimeLeft = 30;
+    // FIX 2: Only resume poison timer if state is still POISON_PHASE
     if (room.state === 'POISON_PHASE' && room.poisonPaused) {
       const elapsedBeforePause = (room.poisonPausedAt - room.poisonStartTime) / 1000;
       restoredTimeLeft = Math.max(0, Math.ceil(room.poisonDuration - elapsedBeforePause));
@@ -183,12 +203,12 @@ io.on('connection', (socket) => {
     
     broadcastPlayersList(room);
     const currentTurnPlayer = room.players.find(p => p.id === room.currentTurn);
-    socket.emit('game_state_restored', { state: room.state, players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, isOwner: p.username === room.owner })), owner: room.owner, myHealth: room.health[socket.id] || 3, currentTurnUsername: currentTurnPlayer ? currentTurnPlayer.username : null, myEatenChips: room.eatenChips[socket.id] || [], roomCode: room.code, myUsername: username, timeLeft: restoredTimeLeft });
+    socket.emit('game_state_restored', { state: room.state, players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, isOwner: p.username === room.owner, avatar: p.avatar })), owner: room.owner, myHealth: room.health[socket.id] || 3, opponentHealth: room.health[currentTurnPlayer?.id !== socket.id ? currentTurnPlayer?.id : room.players.find(p=>p.id!==socket.id)?.id] || 3, currentTurnUsername: currentTurnPlayer ? currentTurnPlayer.username : null, myEatenChips: room.eatenChips[socket.id] || [], roomCode: room.code, myUsername: username, timeLeft: restoredTimeLeft });
   });
 
-  socket.on('create_room', (username) => { if (users[username] && users[username].activeRoom) { users[username].activeRoom = null; saveUsers(users); } const roomCode = generateRoomCode(); rooms[roomCode] = { code: roomCode, owner: username, players: [{ id: socket.id, username, ready: false }], state: 'LOBBY', poisons: {}, health: {}, eatenChips: {}, currentTurn: null, timerInterval: null, playAgainVotes: {}, reconnectTimeout: null, poisonStartTime: null, poisonDuration: 30, poisonPaused: false, poisonPausedAt: null }; socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = 0; socket.username = username; if (users[username]) { users[username].activeRoom = roomCode; saveUsers(users); } updateFriendStatus(username, 'room'); socket.emit('room_created', { roomCode, playerIndex: 0, owner: username }); broadcastPlayersList(rooms[roomCode]); });
+  socket.on('create_room', (username) => { if (users[username] && users[username].activeRoom) { users[username].activeRoom = null; saveUsers(users); } const roomCode = generateRoomCode(); rooms[roomCode] = { code: roomCode, owner: username, players: [{ id: socket.id, username, ready: false, avatar: users[username]?.avatar || null }], state: 'LOBBY', poisons: {}, health: {}, eatenChips: {}, currentTurn: null, timerInterval: null, playAgainVotes: {}, reconnectTimeout: null, poisonStartTime: null, poisonDuration: 30, poisonPaused: false, poisonPausedAt: null }; socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = 0; socket.username = username; if (users[username]) { users[username].activeRoom = roomCode; saveUsers(users); } updateFriendStatus(username, 'room'); socket.emit('room_created', { roomCode, playerIndex: 0, owner: username }); broadcastPlayersList(rooms[roomCode]); });
   
-  socket.on('join_room', ({ roomCode, username }) => { const room = rooms[roomCode]; if (!room) return socket.emit('error', { message: 'Lobby not found' }); if (room.players.length >= 2) return socket.emit('error', { message: 'Lobby is full' }); if (users[username] && users[username].activeRoom && users[username].activeRoom !== roomCode) { const oldRoom = rooms[users[username].activeRoom]; if (oldRoom) { const oldPlayerIndex = oldRoom.players.findIndex(p => p.username === username); if (oldPlayerIndex !== -1) { oldRoom.players.splice(oldPlayerIndex, 1); if (oldRoom.players.length === 0) { delete rooms[users[username].activeRoom]; } else { io.to(users[username].activeRoom).emit('player_left', { username }); broadcastPlayersList(oldRoom); if (oldRoom.owner === username && oldRoom.players.length > 0) { oldRoom.owner = oldRoom.players[0].username; broadcastPlayersList(oldRoom); } } } } users[username].activeRoom = null; saveUsers(users); } if (socket.roomCode && rooms[socket.roomCode]) { const oldRoom = rooms[socket.roomCode]; const oldPlayerIndex = oldRoom.players.findIndex(p => p.id === socket.id); if (oldPlayerIndex !== -1) { oldRoom.players.splice(oldPlayerIndex, 1); socket.leave(socket.roomCode); if (oldRoom.players.length === 0) { delete rooms[socket.roomCode]; } else { io.to(socket.roomCode).emit('player_left', { username }); broadcastPlayersList(oldRoom); } } } room.players.push({ id: socket.id, username, ready: false }); socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = room.players.findIndex(p => p.id === socket.id); socket.username = username; if (users[username]) { users[username].activeRoom = roomCode; saveUsers(users); } updateFriendStatus(username, 'room'); emitToRoom(room, 'player_joined', { players: room.players.map(p => ({ id: p.id, username: p.username })), owner: room.owner }); broadcastPlayersList(room); });
+  socket.on('join_room', ({ roomCode, username }) => { const room = rooms[roomCode]; if (!room) return socket.emit('error', { message: 'Lobby not found' }); if (room.players.length >= 2) return socket.emit('error', { message: 'Lobby is full' }); if (users[username] && users[username].activeRoom && users[username].activeRoom !== roomCode) { const oldRoom = rooms[users[username].activeRoom]; if (oldRoom) { const oldPlayerIndex = oldRoom.players.findIndex(p => p.username === username); if (oldPlayerIndex !== -1) { oldRoom.players.splice(oldPlayerIndex, 1); if (oldRoom.players.length === 0) { delete rooms[users[username].activeRoom]; } else { io.to(users[username].activeRoom).emit('player_left', { username }); broadcastPlayersList(oldRoom); if (oldRoom.owner === username && oldRoom.players.length > 0) { oldRoom.owner = oldRoom.players[0].username; broadcastPlayersList(oldRoom); } } } } users[username].activeRoom = null; saveUsers(users); } if (socket.roomCode && rooms[socket.roomCode]) { const oldRoom = rooms[socket.roomCode]; const oldPlayerIndex = oldRoom.players.findIndex(p => p.id === socket.id); if (oldPlayerIndex !== -1) { oldRoom.players.splice(oldPlayerIndex, 1); socket.leave(socket.roomCode); if (oldRoom.players.length === 0) { delete rooms[socket.roomCode]; } else { io.to(socket.roomCode).emit('player_left', { username }); broadcastPlayersList(oldRoom); } } } room.players.push({ id: socket.id, username, ready: false, avatar: users[username]?.avatar || null }); socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = room.players.findIndex(p => p.id === socket.id); socket.username = username; if (users[username]) { users[username].activeRoom = roomCode; saveUsers(users); } updateFriendStatus(username, 'room'); emitToRoom(room, 'player_joined', { players: room.players.map(p => ({ id: p.id, username: p.username, avatar: p.avatar })), owner: room.owner }); broadcastPlayersList(room); });
   
   socket.on('player_ready', () => { const room = rooms[socket.roomCode]; if (!room) return; const player = room.players.find(p => p.id === socket.id); if (player) player.ready = !player.ready; broadcastPlayersList(room); });
   socket.on('start_game', () => { const room = rooms[socket.roomCode]; if (!room) return; if (room.owner !== socket.username) return socket.emit('error', { message: 'Only owner can start' }); if (room.players.length !== 2 || !room.players.every(p => p.ready)) return socket.emit('error', { message: 'Both players must be ready' }); room.state = 'POISON_PHASE'; room.poisonStartTime = Date.now(); room.poisonDuration = 30; room.poisons = {}; room.poisonPaused = false; room.poisonPausedAt = null; emitToRoom(room, 'start_poison_phase', { duration: 30 }); });
@@ -197,7 +217,7 @@ io.on('connection', (socket) => {
   
   function startCoinToss(room) { room.state = 'COIN_TOSS'; emitToRoom(room, 'start_coin_toss', {}); setTimeout(() => { if (!rooms[room.code]) return; const firstPlayerIndex = Math.random() < 0.5 ? 0 : 1; room.currentTurn = room.players[firstPlayerIndex].id; room.state = 'PLAYING'; room.health = {}; room.eatenChips = {}; room.poisonStartTime = null; room.players.forEach(p => { room.health[p.id] = 3; room.eatenChips[p.id] = []; }); emitToRoom(room, 'coin_toss_result', { firstPlayerId: room.currentTurn, firstPlayerName: room.players[firstPlayerIndex].username, firstPlayerIndex: firstPlayerIndex }); }, 3000); }
   
-  socket.on('eat_chip', ({ chipIndex }) => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'PLAYING' || room.currentTurn !== socket.id) return; if (!room.eatenChips[socket.id]) room.eatenChips[socket.id] = []; if (room.eatenChips[socket.id].includes(chipIndex)) return; const opponent = room.players.find(p => p.id !== socket.id); const opponentPoisons = room.poisons[opponent.id]; const isPoisoned = opponentPoisons.includes(chipIndex); room.eatenChips[socket.id].push(chipIndex); emitToRoom(room, 'chip_eaten', { chipIndex, playerId: socket.id, isPoisoned, message: isPoisoned ? 'You Got Poisened!' : 'You Are Safe!' }); if (isPoisoned) { room.health[socket.id]--; if (room.health[socket.id] <= 0) { room.state = 'GAME_OVER'; const winner = opponent.username; const loser = room.players.find(p => p.id === socket.id).username; if (users[winner]) { users[winner].wins++; users[winner].activeRoom = null; } if (users[loser]) { users[loser].losses++; users[loser].activeRoom = null; } saveUsers(users); emitToRoom(room, 'game_over', { winnerId: opponent.id, winnerName: winner, loserId: socket.id, loserName: loser }); return; } } room.currentTurn = opponent.id; emitToRoom(room, 'turn_changed', { nextPlayerId: opponent.id }); });
+  socket.on('eat_chip', ({ chipIndex }) => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'PLAYING' || room.currentTurn !== socket.id) return; if (!room.eatenChips[socket.id]) room.eatenChips[socket.id] = []; if (room.eatenChips[socket.id].includes(chipIndex)) return; const opponent = room.players.find(p => p.id !== socket.id); const opponentPoisons = room.poisons[opponent.id]; const isPoisoned = opponentPoisons.includes(chipIndex); room.eatenChips[socket.id].push(chipIndex); emitToRoom(room, 'chip_eaten', { chipIndex, playerId: socket.id, isPoisoned, message: isPoisoned ? 'You Got Poisened!' : 'You Are Safe!', health: { [socket.id]: room.health[socket.id] - (isPoisoned?1:0), [opponent.id]: room.health[opponent.id] } }); if (isPoisoned) { room.health[socket.id]--; if (room.health[socket.id] <= 0) { room.state = 'GAME_OVER'; const winner = opponent.username; const loser = room.players.find(p => p.id === socket.id).username; if (users[winner]) { users[winner].wins++; users[winner].activeRoom = null; } if (users[loser]) { users[loser].losses++; users[loser].activeRoom = null; } saveUsers(users); emitToRoom(room, 'game_over', { winnerId: opponent.id, winnerName: winner, loserId: socket.id, loserName: loser }); return; } } room.currentTurn = opponent.id; emitToRoom(room, 'turn_changed', { nextPlayerId: opponent.id, health: { [socket.id]: room.health[socket.id], [opponent.id]: room.health[opponent.id] } }); });
   
   socket.on('play_again', () => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'GAME_OVER') return; room.playAgainVotes[socket.id] = true; const votesCount = Object.keys(room.playAgainVotes).length; emitToRoom(room, 'play_again_update', { votesCount }); if (votesCount === 2) { room.state = 'POISON_PHASE'; room.poisons = {}; room.health = {}; room.eatenChips = {}; room.playAgainVotes = {}; room.currentTurn = null; room.poisonStartTime = Date.now(); room.poisonDuration = 30; room.players.forEach(p => { if (users[p.username]) users[p.username].activeRoom = room.code; }); saveUsers(users); emitToRoom(room, 'restart_game', {}); } });
   
