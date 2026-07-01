@@ -30,6 +30,7 @@
 <script>
 const socket=io({reconnection:true,reconnectionAttempts:Infinity,reconnectionDelay:1000,reconnectionDelayMax:5000});
 let currentScreen='auth',roomCode='',selectedPoisons=[],myHealth=3,opponentHealth=3,language='en',isMyTurn=false,poisonTimerInterval=null,playersList=[],currentUser=null,reconnectTimerInterval=null,isDisconnected=false,isOwner=false,roomOwner=null,pendingJoinCode=null,disconnectTimerInterval=null,selectedChipIndex=null,pendingInvite=null,friendsList=[],friendRequests=[],currentFriendsTab='list',usersData={},pendingVerificationUsername=null,pendingVerificationPassword=null;
+let myEatenChipsList = []; // 🔥 FIX: Global list for my eaten chips
 
 function clearPoisonTimer(){if(poisonTimerInterval){clearInterval(poisonTimerInterval);poisonTimerInterval=null}}
 function clearDisconnectTimer(){if(disconnectTimerInterval){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null}['waiting-disconnect-banner','poison-disconnect-banner','coin-disconnect-banner','game-disconnect-banner'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.display='none';el.textContent=''}})}
@@ -84,7 +85,27 @@ function startPoisonPhase(duration){clearPoisonTimer();showScreen('poison');cons
 function submitPoisons(){if(selectedPoisons.length!==3)return alert('Select 3');clearPoisonTimer();socket.emit('submit_poisons',{poisonedChips:selectedPoisons});showScreen('coin')}
 function playAgain(){socket.emit('play_again')}
 
-function startGameUI(){myHealth=3;opponentHealth=3;updateHealth();updateOpponentHealth();showScreen('game');const cd=document.getElementById('game-chips');cd.innerHTML='';selectedChipIndex=null;updateEatButton();for(let i=0;i<9;i++){const chip=document.createElement('div');chip.className='chip';chip.textContent=i+1;chip.onclick=()=>{if(isMyTurn&&!chip.classList.contains('eaten')&&!chip.classList.contains('disabled'))selectChip(i)};cd.appendChild(chip)}updateTurnUI()}
+function startGameUI(){
+  myHealth=3; // Reset for new game if needed, but usually handled by server state
+  updateHealth();
+  updateOpponentHealth();
+  showScreen('game');
+  const cd=document.getElementById('game-chips');
+  cd.innerHTML='';
+  selectedChipIndex=null;
+  updateEatButton();
+  for(let i=0;i<9;i++){
+    const chip=document.createElement('div');
+    chip.className='chip';
+    chip.textContent=i+1;
+    // 🔥 FIX: Mark as eaten if it's in my list
+    if(myEatenChipsList.includes(i)) chip.classList.add('eaten');
+    chip.onclick=()=>{if(isMyTurn&&!chip.classList.contains('eaten')&&!chip.classList.contains('disabled'))selectChip(i)};
+    cd.appendChild(chip);
+  }
+  updateTurnUI();
+}
+
 function selectChip(ci){const cd=document.getElementById('game-chips'),ch=cd.children;for(let c of ch)c.classList.remove('selected');socket.emit('chip_preview_cleared');ch[ci].classList.add('selected');selectedChipIndex=ci;socket.emit('chip_preview',{chipIndex:ci});updateEatButton()}
 function updateEatButton(){const eb=document.getElementById('eat-button');if(eb)eb.disabled=!isMyTurn||selectedChipIndex===null}
 function confirmEat(){if(selectedChipIndex===null||!isMyTurn)return;const ci=selectedChipIndex;selectedChipIndex=null;socket.emit('chip_preview_cleared');const cd=document.getElementById('game-chips'),ch=cd.children;for(let c of ch)c.classList.remove('selected');updateEatButton();socket.emit('eat_chip',{chipIndex:ci})}
@@ -100,18 +121,22 @@ socket.on('connect',()=>{console.log('[Socket] Connected:',socket.id);if(isDisco
 socket.on('reconnect_failed',async({message})=>{hideDisconnectedOverlay();try{await fetch('/api/clear-active-room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser})})}catch(e){}roomCode='';isOwner=false;roomOwner=null;await loadUserData();showScreen('main');alert(message)});
 
 socket.on('game_state_restored',state=>{
-  hideDisconnectedOverlay();myHealth=state.myHealth||3;opponentHealth=state.opponentHealth||3;updateHealth();updateOpponentHealth();
-  isMyTurn=state.currentTurnUsername===currentUser;isOwner=state.owner===currentUser;roomOwner=state.owner;
+  hideDisconnectedOverlay();
+  myHealth=state.myHealth||3;
+  opponentHealth=state.opponentHealth||3;
+  updateHealth();
+  updateOpponentHealth();
+  isMyTurn=state.currentTurnUsername===currentUser;
+  isOwner=state.owner===currentUser;
+  roomOwner=state.owner;
+  // 🔥 FIX: Load my eaten chips
+  myEatenChipsList = state.myEatenChips || [];
+  
   if(state.state==='LOBBY'){showScreen('waiting');document.getElementById('display-room-code').textContent=state.roomCode;updatePlayersList(state.players,state.owner)}
   else if(state.state==='POISON_PHASE')startPoisonPhase(state.timeLeft||30);
   else if(state.state==='COIN_TOSS')showScreen('coin');
-  else if(state.state==='PLAYING'){
-    startGameUI();
-    const cd=document.getElementById('game-chips');
-    // 🔥 FIX 1: Use shared eatenChips array
-    if(state.eatenChips){state.eatenChips.forEach(idx=>{if(cd.children[idx])cd.children[idx].classList.add('eaten')})}
-    updateTurnUI();
-  }else if(state.state==='GAME_OVER')showScreen('gameover');
+  else if(state.state==='PLAYING'){startGameUI();updateTurnUI()}
+  else if(state.state==='GAME_OVER')showScreen('gameover');
 });
 
 socket.on('room_created',({roomCode:code,owner})=>{roomCode=code;pendingJoinCode=null;isOwner=owner===currentUser;roomOwner=owner;document.getElementById('display-room-code').textContent=code;showScreen('waiting');updatePlayersList([{id:socket.id,username:currentUser,ready:false,isOwner:true,avatar:usersData.avatar}],owner)});
@@ -125,37 +150,45 @@ socket.on('pause_coin_timer',()=>{});
 socket.on('start_coin_toss',()=>{clearPoisonTimer();showScreen('coin');const c=document.getElementById('coin');c.textContent='?';c.style.animation='none';setTimeout(()=>c.style.animation='flip 3s ease-out',10)});
 socket.on('coin_toss_result',({firstPlayerId,firstPlayerName})=>{const c=document.getElementById('coin');c.textContent=firstPlayerName;document.getElementById('coin-result').textContent=firstPlayerName+' starts!';setTimeout(()=>{isMyTurn=firstPlayerName===currentUser;startGameUI()},2000)});
 
-socket.on('chip_eaten',({chipIndex,playerId,isPoisoned,message,health,eatenChips})=>{
+socket.on('chip_eaten',({chipIndex,playerId,isPoisoned,message,health,myEatenChips})=>{
   const cd=document.getElementById('game-chips');
-  if(cd.children[chipIndex])cd.children[chipIndex].classList.add('eaten');
+  const ch=cd.children[chipIndex];
+  if(ch)ch.classList.add('eaten');
   const md=document.getElementById('game-message');
-  if(playerId===socket.id){md.textContent=message;md.className='message '+(isPoisoned?'poisoned':'safe');setTimeout(()=>{md.textContent='';md.className='message'},2000)}
-  // 🔥 FIX 2: Immediate health sync using Object.keys to avoid ID mismatch
-  if(health){
-    if(health[socket.id]!==undefined)myHealth=health[socket.id];
-    const opId=Object.keys(health).find(id=>id!==socket.id);
-    if(opId&&health[opId]!==undefined)opponentHealth=health[opId];
-    updateHealth();updateOpponentHealth();
+  if(playerId===socket.id){
+    // 🔥 FIX: Update my eaten chips list
+    if(myEatenChips) myEatenChipsList = myEatenChips;
+    md.textContent=message;
+    md.className='message '+(isPoisoned?'poisoned':'safe');
+    setTimeout(()=>{md.textContent='';md.className='message'},2000);
   }
-  // 🔥 FIX 1: Sync shared eaten chips
-  if(eatenChips){eatenChips.forEach(idx=>{if(cd.children[idx])cd.children[idx].classList.add('eaten')})}
+  // 🔥 FIX: Update health immediately for both players
+  if(health){
+    if(health[socket.id]!==undefined) myHealth=health[socket.id];
+    const opId=Object.keys(health).find(id=>id!==socket.id);
+    if(opId&&health[opId]!==undefined) opponentHealth=health[opId];
+    updateHealth();
+    updateOpponentHealth();
+  }
 });
 
 socket.on('turn_changed',({nextPlayerId,health})=>{
-  const np=playersList.find(p=>p.id===nextPlayerId);if(np)isMyTurn=np.username===currentUser;
-  // 🔥 FIX 2: Immediate health sync
+  const np=playersList.find(p=>p.id===nextPlayerId);
+  if(np)isMyTurn=np.username===currentUser;
+  // 🔥 FIX: Update health on turn change too
   if(health){
-    if(health[socket.id]!==undefined)myHealth=health[socket.id];
+    if(health[socket.id]!==undefined) myHealth=health[socket.id];
     const opId=Object.keys(health).find(id=>id!==socket.id);
-    if(opId&&health[opId]!==undefined)opponentHealth=health[opId];
-    updateHealth();updateOpponentHealth();
+    if(opId&&health[opId]!==undefined) opponentHealth=health[opId];
+    updateHealth();
+    updateOpponentHealth();
   }
   updateTurnUI();
 });
 
 socket.on('game_over',({winnerId,winnerName,loserId,loserName})=>{clearPoisonTimer();clearDisconnectTimer();showScreen('gameover');const iw=winnerName===currentUser,te=document.getElementById('gameover-title');te.textContent=iw?'You Win!':'You Lose!';te.classList.remove('win','lose');te.classList.add(iw?'win':'lose');document.getElementById('gameover-message').textContent=iw?'Defeated '+loserName+'!':winnerName+' defeated you!';document.getElementById('votes-display').textContent='';loadUserData()});
 socket.on('play_again_update',({votesCount})=>document.getElementById('votes-display').textContent=votesCount+'/2 ready');
-socket.on('restart_game',()=>{myHealth=3;opponentHealth=3;updateHealth();updateOpponentHealth();clearPoisonTimer();clearDisconnectTimer();disconnectTimerInterval=null;startPoisonPhase(30)});
+socket.on('restart_game',()=>{myHealth=3;opponentHealth=3;myEatenChipsList=[];updateHealth();updateOpponentHealth();clearPoisonTimer();clearDisconnectTimer();disconnectTimerInterval=null;startPoisonPhase(30)});
 socket.on('start_disconnect_timer',({disconnectedUsername,timeout,isYou})=>{if(isYou)return;if(disconnectTimerInterval){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null}['waiting-disconnect-banner','poison-disconnect-banner','coin-disconnect-banner','game-disconnect-banner'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none'});let bi='';if(currentScreen==='waiting')bi='waiting-disconnect-banner';else if(currentScreen==='poison')bi='poison-disconnect-banner';else if(currentScreen==='coin')bi='coin-disconnect-banner';else if(currentScreen==='game')bi='game-disconnect-banner';else return;const b=document.getElementById(bi);if(!b)return;let tl=timeout;b.textContent=disconnectedUsername+' disconnected! '+tl+'s...';b.style.display='block';disconnectTimerInterval=setInterval(()=>{tl--;if(b)b.textContent=disconnectedUsername+' disconnected! '+tl+'s...';if(tl<=0){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null;if(b)b.style.display='none'}},1000)});
 socket.on('opponent_reconnected',({username})=>{if(disconnectTimerInterval){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null}['waiting-disconnect-banner','poison-disconnect-banner','coin-disconnect-banner','game-disconnect-banner'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none'});let bi='';if(currentScreen==='waiting')bi='waiting-disconnect-banner';else if(currentScreen==='poison')bi='poison-disconnect-banner';else if(currentScreen==='coin')bi='coin-disconnect-banner';else if(currentScreen==='game')bi='game-disconnect-banner';if(bi){const b=document.getElementById(bi);if(b){b.textContent=username+' reconnected!';b.style.display='block';b.style.background='linear-gradient(135deg,#4ade80,#22c55e)';setTimeout(()=>{b.style.display='none';b.style.background=''},2000)}}});
 socket.on('opponent_lost',({message})=>{if(disconnectTimerInterval){clearInterval(disconnectTimerInterval);disconnectTimerInterval=null}['waiting-disconnect-banner','poison-disconnect-banner','coin-disconnect-banner','game-disconnect-banner'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none'});alert(message);backToMain()});
