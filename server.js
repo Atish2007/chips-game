@@ -191,7 +191,7 @@ app.post('/api/handle-friend-request', (req, res) => {
 });
 
 app.get('/api/friend-requests/:username', (req, res) => { const { username } = req.params; const normalizedUsername = username.toLowerCase(); const user = users[normalizedUsername]; if (!user) return res.status(404).json({ error: 'User not found' }); res.json({ requests: user.friendRequests || [] }); });
-app.get('/api/friends/:username', (req, res) => { const { username } = req.params; const normalizedUsername = username.toLowerCase(); const user = users[normalizedUsername]; if (!user) return res.status(404).json({ error: 'User not found' }); const friends = (user.friends || []).map(f => ({ username: f, status: connectedUsers[f] ? connectedUsers[f].status : 'offline' })); res.json({ friends }); });
+app.get('/api/friends/:username', (req, res) => { const { username } = req.params; const normalizedUsername = username.toLowerCase(); const user = users[normalizedUsername]; if (!user) return res.status(404).json({ error: 'User not found' }); const friends = (user.friends || []).map(f => ({ username: f, status: connectedUsers[f] ? connectedUsers[f].status : 'offline', avatar: users[f] ? users[f].avatar : null })); res.json({ friends }); });
 
 app.post('/api/forgot-password', async (req, res) => {
   const { username } = req.body;
