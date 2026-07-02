@@ -185,6 +185,21 @@ app.post('/api/handle-friend-request', (req, res) => {
   res.json({ success: true });
 });
 
+// 🔥 FIX 1: Endpoint جدید برای Remove Friend
+app.post('/api/remove-friend', (req, res) => {
+  const { username, friendUsername } = req.body;
+  if (!username || !friendUsername) return res.status(400).json({ error: 'Usernames required' });
+  const normalizedUser = username.toLowerCase();
+  const normalizedFriend = friendUsername.toLowerCase();
+  if (!users[normalizedUser] || !users[normalizedFriend]) return res.status(404).json({ error: 'User not found' });
+  users[normalizedUser].friends = users[normalizedUser].friends || [];
+  users[normalizedFriend].friends = users[normalizedFriend].friends || [];
+  users[normalizedUser].friends = users[normalizedUser].friends.filter(f => f !== normalizedFriend);
+  users[normalizedFriend].friends = users[normalizedFriend].friends.filter(f => f !== normalizedUser);
+  saveUsers(users);
+  res.json({ success: true });
+});
+
 app.get('/api/friend-requests/:username', (req, res) => { const { username } = req.params; const normalizedUsername = username.toLowerCase(); const user = users[normalizedUsername]; if (!user) return res.status(404).json({ error: 'User not found' }); res.json({ requests: user.friendRequests || [] }); });
 app.get('/api/friends/:username', (req, res) => { const { username } = req.params; const normalizedUsername = username.toLowerCase(); const user = users[normalizedUsername]; if (!user) return res.status(404).json({ error: 'User not found' }); const friends = (user.friends || []).map(f => ({ username: f, status: connectedUsers[f] ? connectedUsers[f].status : 'offline', avatar: users[f] ? users[f].avatar : null })); res.json({ friends }); });
 
@@ -228,13 +243,10 @@ function updateFriendStatus(username, status) { if (connectedUsers[username]) { 
 
 io.on('connection', (socket) => {
   console.log(`[+] Connected: ${socket.id}`);
-
   socket.on('user_logged_in', ({ username }) => { connectedUsers[username] = { socketId: socket.id, status: 'main' }; socket.username = username; const user = users[username]; if (user && user.friends) user.friends.forEach(friend => { if (connectedUsers[friend]) io.to(connectedUsers[friend].socketId).emit('friend_status_update', { username, status: 'main' }); }); });
-
   socket.on('chip_preview', ({ chipIndex }) => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'PLAYING') return; const opponent = room.players.find(p => p.id !== socket.id); if (opponent) io.to(opponent.id).emit('opponent_chip_preview', { chipIndex, playerId: socket.id }); });
   socket.on('chip_preview_cleared', () => { const room = rooms[socket.roomCode]; if (!room) return; const opponent = room.players.find(p => p.id !== socket.id); if (opponent) io.to(opponent.id).emit('opponent_chip_preview_cleared', { playerId: socket.id }); });
   socket.on('invite_friend', ({ friendUsername }) => { const normalizedFriend = friendUsername.toLowerCase(); if (connectedUsers[normalizedFriend] && socket.roomCode) { io.to(connectedUsers[normalizedFriend].socketId).emit('friend_invite', { from: socket.username, roomCode: socket.roomCode }); } });
-
   socket.on('reconnect_to_game', ({ roomCode, username }) => {
     const room = rooms[roomCode];
     if (!room) { if (users[username]) { users[username].activeRoom = null; saveUsers(users); } return socket.emit('reconnect_failed', { message: 'Lobby not found' }); }
@@ -261,157 +273,17 @@ io.on('connection', (socket) => {
     broadcastPlayersList(room);
     const currentTurnPlayer = room.players.find(p => p.id === room.currentTurn);
     const opponent = room.players.find(p => p.id !== socket.id);
-    socket.emit('game_state_restored', { 
-      state: room.state, 
-      players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, isOwner: p.username === room.owner, avatar: p.avatar })), 
-      owner: room.owner, 
-      myHealth: room.health[socket.id] || 3, 
-      opponentHealth: opponent ? (room.health[opponent.id] || 3) : 3, 
-      currentTurnUsername: currentTurnPlayer ? currentTurnPlayer.username : null, 
-      myEatenChips: room.eatenChips[socket.id] || [], 
-      roomCode: room.code, 
-      myUsername: username, 
-      timeLeft: restoredTimeLeft 
-    });
+    socket.emit('game_state_restored', { state: room.state, players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, isOwner: p.username === room.owner, avatar: p.avatar })), owner: room.owner, myHealth: room.health[socket.id] || 3, opponentHealth: opponent ? (room.health[opponent.id] || 3) : 3, currentTurnUsername: currentTurnPlayer ? currentTurnPlayer.username : null, myEatenChips: room.eatenChips[socket.id] || [], roomCode: room.code, myUsername: username, timeLeft: restoredTimeLeft });
   });
-
-  socket.on('create_room', (username) => { 
-    if (users[username] && users[username].activeRoom) { users[username].activeRoom = null; saveUsers(users); } 
-    const roomCode = generateRoomCode(); 
-    rooms[roomCode] = { 
-      code: roomCode, owner: username, 
-      players: [{ id: socket.id, username, ready: false, avatar: users[username]?.avatar || null }], 
-      state: 'LOBBY', poisons: {}, health: {}, 
-      eatenChips: {}, // 🔥 FIX: Object instead of Array
-      currentTurn: null, timerInterval: null, playAgainVotes: {}, reconnectTimeout: null, poisonStartTime: null, poisonDuration: 30, poisonPaused: false, poisonPausedAt: null 
-    }; 
-    socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = 0; socket.username = username; 
-    if (users[username]) { users[username].activeRoom = roomCode; saveUsers(users); } 
-    updateFriendStatus(username, 'room'); 
-    socket.emit('room_created', { roomCode, playerIndex: 0, owner: username }); 
-    broadcastPlayersList(rooms[roomCode]); 
-  });
-
-  socket.on('join_room', ({ roomCode, username }) => {
-    const room = rooms[roomCode];
-    if (!room) return socket.emit('error', { message: 'Lobby not found' });
-    if (room.players.length >= 2) return socket.emit('error', { message: 'Lobby is full' });
-    if (users[username] && users[username].activeRoom && users[username].activeRoom !== roomCode) {
-      const oldRoom = rooms[users[username].activeRoom];
-      if (oldRoom) {
-        const oldPlayerIndex = oldRoom.players.findIndex(p => p.username === username);
-        if (oldPlayerIndex !== -1) {
-          oldRoom.players.splice(oldPlayerIndex, 1);
-          if (oldRoom.players.length === 0) { delete rooms[users[username].activeRoom]; } else { io.to(users[username].activeRoom).emit('player_left', { username }); broadcastPlayersList(oldRoom); if (oldRoom.owner === username && oldRoom.players.length > 0) { oldRoom.owner = oldRoom.players[0].username; broadcastPlayersList(oldRoom); } }
-        }
-      }
-      users[username].activeRoom = null; saveUsers(users);
-    }
-    if (socket.roomCode && rooms[socket.roomCode]) {
-      const oldRoom = rooms[socket.roomCode];
-      const oldPlayerIndex = oldRoom.players.findIndex(p => p.id === socket.id);
-      if (oldPlayerIndex !== -1) { oldRoom.players.splice(oldPlayerIndex, 1); socket.leave(socket.roomCode); if (oldRoom.players.length === 0) { delete rooms[socket.roomCode]; } else { io.to(socket.roomCode).emit('player_left', { username }); broadcastPlayersList(oldRoom); } }
-    }
-    room.players.push({ id: socket.id, username, ready: false, avatar: users[username]?.avatar || null });
-    socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = room.players.findIndex(p => p.id === socket.id); socket.username = username;
-    if (users[username]) { users[username].activeRoom = roomCode; saveUsers(users); }
-    updateFriendStatus(username, 'room');
-    emitToRoom(room, 'player_joined', { players: room.players.map(p => ({ id: p.id, username: p.username, avatar: p.avatar })), owner: room.owner });
-    broadcastPlayersList(room);
-  });
-
+  socket.on('create_room', (username) => { if (users[username] && users[username].activeRoom) { users[username].activeRoom = null; saveUsers(users); } const roomCode = generateRoomCode(); rooms[roomCode] = { code: roomCode, owner: username, players: [{ id: socket.id, username, ready: false, avatar: users[username]?.avatar || null }], state: 'LOBBY', poisons: {}, health: {}, eatenChips: {}, currentTurn: null, timerInterval: null, playAgainVotes: {}, reconnectTimeout: null, poisonStartTime: null, poisonDuration: 30, poisonPaused: false, poisonPausedAt: null }; socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = 0; socket.username = username; if (users[username]) { users[username].activeRoom = roomCode; saveUsers(users); } updateFriendStatus(username, 'room'); socket.emit('room_created', { roomCode, playerIndex: 0, owner: username }); broadcastPlayersList(rooms[roomCode]); });
+  socket.on('join_room', ({ roomCode, username }) => { const room = rooms[roomCode]; if (!room) return socket.emit('error', { message: 'Lobby not found' }); if (room.players.length >= 2) return socket.emit('error', { message: 'Lobby is full' }); if (users[username] && users[username].activeRoom && users[username].activeRoom !== roomCode) { const oldRoom = rooms[users[username].activeRoom]; if (oldRoom) { const oldPlayerIndex = oldRoom.players.findIndex(p => p.username === username); if (oldPlayerIndex !== -1) { oldRoom.players.splice(oldPlayerIndex, 1); if (oldRoom.players.length === 0) { delete rooms[users[username].activeRoom]; } else { io.to(users[username].activeRoom).emit('player_left', { username }); broadcastPlayersList(oldRoom); if (oldRoom.owner === username && oldRoom.players.length > 0) { oldRoom.owner = oldRoom.players[0].username; broadcastPlayersList(oldRoom); } } } } users[username].activeRoom = null; saveUsers(users); } if (socket.roomCode && rooms[socket.roomCode]) { const oldRoom = rooms[socket.roomCode]; const oldPlayerIndex = oldRoom.players.findIndex(p => p.id === socket.id); if (oldPlayerIndex !== -1) { oldRoom.players.splice(oldPlayerIndex, 1); socket.leave(socket.roomCode); if (oldRoom.players.length === 0) { delete rooms[socket.roomCode]; } else { io.to(socket.roomCode).emit('player_left', { username }); broadcastPlayersList(oldRoom); } } } room.players.push({ id: socket.id, username, ready: false, avatar: users[username]?.avatar || null }); socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = room.players.findIndex(p => p.id === socket.id); socket.username = username; if (users[username]) { users[username].activeRoom = roomCode; saveUsers(users); } updateFriendStatus(username, 'room'); emitToRoom(room, 'player_joined', { players: room.players.map(p => ({ id: p.id, username: p.username, avatar: p.avatar })), owner: room.owner }); broadcastPlayersList(room); });
   socket.on('player_ready', () => { const room = rooms[socket.roomCode]; if (!room) return; const player = room.players.find(p => p.id === socket.id); if (player) player.ready = !player.ready; broadcastPlayersList(room); });
   socket.on('start_game', () => { const room = rooms[socket.roomCode]; if (!room) return; if (room.owner !== socket.username) return socket.emit('error', { message: 'Only owner can start' }); if (room.players.length !== 2 || !room.players.every(p => p.ready)) return socket.emit('error', { message: 'Both players must be ready' }); room.state = 'POISON_PHASE'; room.poisonStartTime = Date.now(); room.poisonDuration = 30; room.poisons = {}; room.poisonPaused = false; room.poisonPausedAt = null; emitToRoom(room, 'start_poison_phase', { duration: 30 }); });
   socket.on('submit_poisons', ({ poisonedChips }) => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'POISON_PHASE') return; room.poisons[socket.id] = poisonedChips; if (Object.keys(room.poisons).length === 2) startCoinToss(room); });
   socket.on('poison_time_up', () => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'POISON_PHASE') return; room.players.forEach(p => { if (!room.poisons[p.id]) { const allChips = [0, 1, 2, 3, 4, 5, 6, 7, 8]; const randomPoisons = []; for (let i = 0; i < 3; i++) { const randIndex = Math.floor(Math.random() * allChips.length); randomPoisons.push(allChips.splice(randIndex, 1)[0]); } room.poisons[p.id] = randomPoisons; } }); startCoinToss(room); });
-
-  function startCoinToss(room) { 
-    room.state = 'COIN_TOSS'; 
-    emitToRoom(room, 'start_coin_toss', {}); 
-    setTimeout(() => { 
-      if (!rooms[room.code]) return; 
-      const firstPlayerIndex = Math.random() < 0.5 ? 0 : 1; 
-      room.currentTurn = room.players[firstPlayerIndex].id; 
-      room.state = 'PLAYING'; 
-      room.health = {}; 
-      room.eatenChips = {}; // 🔥 FIX: Object
-      room.poisonStartTime = null; 
-      room.players.forEach(p => { room.health[p.id] = 3; }); 
-      emitToRoom(room, 'coin_toss_result', { firstPlayerId: room.currentTurn, firstPlayerName: room.players[firstPlayerIndex].username, firstPlayerIndex: firstPlayerIndex }); 
-    }, 3000); 
-  }
-
-  socket.on('eat_chip', ({ chipIndex }) => {
-    const room = rooms[socket.roomCode];
-    if (!room || room.state !== 'PLAYING' || room.currentTurn !== socket.id) return;
-    
-    // 🔥 FIX: Per-player eaten chips
-    if (!room.eatenChips[socket.id]) room.eatenChips[socket.id] = [];
-    if (room.eatenChips[socket.id].includes(chipIndex)) return;
-    
-    const opponent = room.players.find(p => p.id !== socket.id);
-    const opponentPoisons = room.poisons[opponent.id];
-    const isPoisoned = opponentPoisons.includes(chipIndex);
-    
-    room.eatenChips[socket.id].push(chipIndex);
-    
-    // 🔥 FIX: Send health immediately
-    const healthUpdate = {
-      [socket.id]: room.health[socket.id] - (isPoisoned ? 1 : 0),
-      [opponent.id]: room.health[opponent.id]
-    };
-
-    emitToRoom(room, 'chip_eaten', {
-      chipIndex,
-      playerId: socket.id,
-      isPoisoned,
-      message: isPoisoned ? 'You Got Poisened!' : 'You Are Safe!',
-      health: healthUpdate,
-      myEatenChips: room.eatenChips[socket.id] // Send back my eaten chips
-    });
-
-    if (isPoisoned) {
-      room.health[socket.id]--;
-      if (room.health[socket.id] <= 0) {
-        room.state = 'GAME_OVER';
-        const winner = opponent.username;
-        const loser = room.players.find(p => p.id === socket.id).username;
-        if (users[winner]) { users[winner].wins++; users[winner].activeRoom = null; }
-        if (users[loser]) { users[loser].losses++; users[loser].activeRoom = null; }
-        saveUsers(users);
-        emitToRoom(room, 'game_over', { winnerId: opponent.id, winnerName: winner, loserId: socket.id, loserName: loser });
-        return;
-      }
-    }
-
-    room.currentTurn = opponent.id;
-    emitToRoom(room, 'turn_changed', { 
-      nextPlayerId: opponent.id, 
-      health: { [socket.id]: room.health[socket.id], [opponent.id]: room.health[opponent.id] } 
-    });
-  });
-
-  socket.on('play_again', () => { 
-    const room = rooms[socket.roomCode]; 
-    if (!room || room.state !== 'GAME_OVER') return; 
-    room.playAgainVotes[socket.id] = true; 
-    const votesCount = Object.keys(room.playAgainVotes).length; 
-    emitToRoom(room, 'play_again_update', { votesCount }); 
-    if (votesCount === 2) { 
-      room.state = 'POISON_PHASE'; 
-      room.poisons = {}; 
-      room.health = {}; 
-      room.eatenChips = {}; // 🔥 FIX: Object
-      room.playAgainVotes = {}; 
-      room.currentTurn = null; 
-      room.poisonStartTime = Date.now(); 
-      room.poisonDuration = 30; 
-      room.players.forEach(p => { if (users[p.username]) users[p.username].activeRoom = room.code; }); 
-      saveUsers(users); 
-      emitToRoom(room, 'restart_game', {}); 
-    } 
-  });
-
+  function startCoinToss(room) { room.state = 'COIN_TOSS'; emitToRoom(room, 'start_coin_toss', {}); setTimeout(() => { if (!rooms[room.code]) return; const firstPlayerIndex = Math.random() < 0.5 ? 0 : 1; room.currentTurn = room.players[firstPlayerIndex].id; room.state = 'PLAYING'; room.health = {}; room.eatenChips = {}; room.poisonStartTime = null; room.players.forEach(p => { room.health[p.id] = 3; }); emitToRoom(room, 'coin_toss_result', { firstPlayerId: room.currentTurn, firstPlayerName: room.players[firstPlayerIndex].username, firstPlayerIndex: firstPlayerIndex }); }, 3000); }
+  socket.on('eat_chip', ({ chipIndex }) => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'PLAYING' || room.currentTurn !== socket.id) return; if (!room.eatenChips[socket.id]) room.eatenChips[socket.id] = []; if (room.eatenChips[socket.id].includes(chipIndex)) return; const opponent = room.players.find(p => p.id !== socket.id); const opponentPoisons = room.poisons[opponent.id]; const isPoisoned = opponentPoisons.includes(chipIndex); room.eatenChips[socket.id].push(chipIndex); emitToRoom(room, 'chip_eaten', { chipIndex, playerId: socket.id, isPoisoned, message: isPoisoned ? 'You Got Poisened!' : 'You Are Safe!', health: { [socket.id]: room.health[socket.id] - (isPoisoned ? 1 : 0), [opponent.id]: room.health[opponent.id] }, myEatenChips: room.eatenChips[socket.id] }); if (isPoisoned) { room.health[socket.id]--; if (room.health[socket.id] <= 0) { room.state = 'GAME_OVER'; const winner = opponent.username; const loser = room.players.find(p => p.id === socket.id).username; if (users[winner]) { users[winner].wins++; users[winner].activeRoom = null; } if (users[loser]) { users[loser].losses++; users[loser].activeRoom = null; } saveUsers(users); emitToRoom(room, 'game_over', { winnerId: opponent.id, winnerName: winner, loserId: socket.id, loserName: loser }); return; } } room.currentTurn = opponent.id; emitToRoom(room, 'turn_changed', { nextPlayerId: opponent.id, health: { [socket.id]: room.health[socket.id], [opponent.id]: room.health[opponent.id] } }); });
+  socket.on('play_again', () => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'GAME_OVER') return; room.playAgainVotes[socket.id] = true; const votesCount = Object.keys(room.playAgainVotes).length; emitToRoom(room, 'play_again_update', { votesCount }); if (votesCount === 2) { room.state = 'POISON_PHASE'; room.poisons = {}; room.health = {}; room.eatenChips = {}; room.playAgainVotes = {}; room.currentTurn = null; room.poisonStartTime = Date.now(); room.poisonDuration = 30; room.players.forEach(p => { if (users[p.username]) users[p.username].activeRoom = room.code; }); saveUsers(users); emitToRoom(room, 'restart_game', {}); } });
   socket.on('leave_room', () => { if (!socket.roomCode || !rooms[socket.roomCode] || !socket.username) return; const room = rooms[socket.roomCode]; const playerIndex = room.players.findIndex(p => p.id === socket.id); if (playerIndex === -1) return; const leavingPlayer = room.players[playerIndex]; room.players.splice(playerIndex, 1); socket.leave(room.code); if (users[socket.username]) { users[socket.username].activeRoom = null; saveUsers(users); } socket.roomCode = null; socket.playerIndex = -1; updateFriendStatus(socket.username, 'main'); if (room.players.length === 0) { delete rooms[room.code]; } else { socket.to(room.code).emit('player_left', { username: leavingPlayer.username }); broadcastPlayersList(room); if (room.owner === leavingPlayer.username && room.players.length > 0) { room.owner = room.players[0].username; broadcastPlayersList(room); } } });
   socket.on('abandon_match', () => { if (socket.username && users[socket.username]) { const oldRoom = users[socket.username].activeRoom; users[socket.username].activeRoom = null; users[socket.username].losses++; saveUsers(users); if (oldRoom && rooms[oldRoom]) { const room = rooms[oldRoom]; const opponent = room.players.find(p => p.username !== socket.username); if (opponent) { if (users[opponent.username]) { users[opponent.username].wins++; users[opponent.username].activeRoom = null; saveUsers(users); } io.to(oldRoom).emit('opponent_abandoned', { username: socket.username, message: `${socket.username} abandoned. You win!` }); room.state = 'GAME_OVER'; } } socket.emit('match_abandoned', { success: true }); } });
   socket.on('abandon_match_during_game', () => { const room = rooms[socket.roomCode]; if (!room || room.state !== 'PLAYING') return; const player = room.players.find(p => p.id === socket.id); if (!player) return; if (users[player.username]) { users[player.username].losses++; users[player.username].activeRoom = null; saveUsers(users); } const opponent = room.players.find(p => p.id !== socket.id); if (opponent) { if (users[opponent.username]) { users[opponent.username].wins++; users[opponent.username].activeRoom = null; saveUsers(users); } emitToRoom(room, 'game_over', { winnerId: opponent.id, winnerName: opponent.username, loserId: socket.id, loserName: player.username }); } room.state = 'GAME_OVER'; });
