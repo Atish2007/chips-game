@@ -67,16 +67,12 @@ app.post('/api/register', async (req, res) => {
       friends: [], friendRequests: []
     };
     saveUsers(users);
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    emailVerificationTokens[normalizedUsername] = { code, expiresAt: Date.now() + 10 * 60 * 1000 };
-    try {
-      if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-        const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
-        await transporter.sendMail({ from: `"Chips Game" <${process.env.GMAIL_USER}>`, to: normalizedEmail, subject: 'Verify your email', html: `<div style="font-family:Arial;text-align:center"><h2>Welcome!</h2><p>Your verification code:</p><h1 style="color:#667eea">${code}</h1><p>Expires in 10 minutes.</p></div>` });
-      }
-    } catch (e) { console.error('[Email] Send error:', e.message); }
+    console.log(`[Auth] New user registered: ${normalizedUsername}`);
     res.json({ success: true, username: normalizedUsername });
-  } catch (error) { res.status(500).json({ error: 'Registration failed' }); }
+  } catch (error) { 
+    console.error('[Auth] Registration error:', error); 
+    res.status(500).json({ error: 'Registration failed' }); 
+  }
 });
 
 app.post('/api/verify-email', (req, res) => {
@@ -105,18 +101,45 @@ app.post('/api/resend-verification', (req, res) => {
   res.json({ success: true });
 });
 
+// 🔥 FIX: Login با try-catch بهتر و لاگ خطا
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
   const normalizedUsername = username.toLowerCase();
   const user = users[normalizedUsername];
-  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+  if (!user) {
+    console.log(`[Auth] Login failed: User not found - ${normalizedUsername}`);
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
   try {
+    // 🔥 FIX: چک کردن اینکه password وجود داره
+    if (!user.password) {
+      console.log(`[Auth] Login failed: No password for user - ${normalizedUsername}`);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
     const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!validPassword) {
+      console.log(`[Auth] Login failed: Wrong password for user - ${normalizedUsername}`);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
     if (user.activeRoom && !rooms[user.activeRoom]) { user.activeRoom = null; saveUsers(users); }
-    res.json({ success: true, username: normalizedUsername, stats: { wins: user.wins, losses: user.losses }, activeRoom: user.activeRoom, email: user.email || null, emailVerified: user.emailVerified || false, avatar: user.avatar || null, language: user.language || 'en' });
-  } catch (error) { res.status(500).json({ error: 'Login failed' }); }
+    console.log(`[Auth] Login successful: ${normalizedUsername}`);
+    res.json({ 
+      success: true, 
+      username: normalizedUsername, 
+      stats: { wins: user.wins, losses: user.losses }, 
+      activeRoom: user.activeRoom, 
+      email: user.email || null, 
+      emailVerified: user.emailVerified || false, 
+      avatar: user.avatar || null, 
+      language: user.language || 'en' 
+    });
+  } catch (error) { 
+    console.error('[Auth] Login error:', error); 
+    res.status(500).json({ error: 'Login failed' }); 
+  }
 });
 
 app.get('/api/user/:username', (req, res) => {
@@ -185,7 +208,6 @@ app.post('/api/handle-friend-request', (req, res) => {
   res.json({ success: true });
 });
 
-// 🔥 FIX 1: Endpoint جدید برای Remove Friend
 app.post('/api/remove-friend', (req, res) => {
   const { username, friendUsername } = req.body;
   if (!username || !friendUsername) return res.status(400).json({ error: 'Usernames required' });
@@ -254,6 +276,7 @@ io.on('connection', (socket) => {
     if (!player) { if (users[username]) { users[username].activeRoom = null; saveUsers(users); } return socket.emit('reconnect_failed', { message: 'Not in this lobby' }); }
     const oldSocketId = player.id; player.id = socket.id;
     if (room.health[oldSocketId] !== undefined) { room.health[socket.id] = room.health[oldSocketId]; delete room.health[oldSocketId]; }
+    if (room.eatenChips[oldSocketId] !== undefined) { room.eatenChips[socket.id] = room.eatenChips[oldSocketId]; delete room.eatenChips[oldSocketId]; } else { room.eatenChips[socket.id] = []; }
     if (room.poisons[oldSocketId] !== undefined) { room.poisons[socket.id] = room.poisons[oldSocketId]; delete room.poisons[oldSocketId]; }
     if (room.currentTurn === oldSocketId) room.currentTurn = socket.id;
     socket.join(roomCode); socket.roomCode = roomCode; socket.playerIndex = room.players.findIndex(p => p.id === socket.id); socket.username = username;
