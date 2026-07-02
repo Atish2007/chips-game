@@ -67,12 +67,16 @@ app.post('/api/register', async (req, res) => {
       friends: [], friendRequests: []
     };
     saveUsers(users);
-    console.log(`[Auth] New user registered: ${normalizedUsername}`);
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    emailVerificationTokens[normalizedUsername] = { code, expiresAt: Date.now() + 10 * 60 * 1000 };
+    try {
+      if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+        const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
+        await transporter.sendMail({ from: `"Chips Game" <${process.env.GMAIL_USER}>`, to: normalizedEmail, subject: 'Verify your email', html: `<div style="font-family:Arial;text-align:center"><h2>Welcome!</h2><p>Your verification code:</p><h1 style="color:#667eea">${code}</h1><p>Expires in 10 minutes.</p></div>` });
+      }
+    } catch (e) { console.error('[Email] Send error:', e.message); }
     res.json({ success: true, username: normalizedUsername });
-  } catch (error) { 
-    console.error('[Auth] Registration error:', error); 
-    res.status(500).json({ error: 'Registration failed' }); 
-  }
+  } catch (error) { console.error('[Auth] Error:', error); res.status(500).json({ error: 'Registration failed' }); }
 });
 
 app.post('/api/verify-email', (req, res) => {
@@ -101,45 +105,18 @@ app.post('/api/resend-verification', (req, res) => {
   res.json({ success: true });
 });
 
-// 🔥 FIX: Login با try-catch بهتر و لاگ خطا
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
   const normalizedUsername = username.toLowerCase();
   const user = users[normalizedUsername];
-  if (!user) {
-    console.log(`[Auth] Login failed: User not found - ${normalizedUsername}`);
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
+  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
   try {
-    // 🔥 FIX: چک کردن اینکه password وجود داره
-    if (!user.password) {
-      console.log(`[Auth] Login failed: No password for user - ${normalizedUsername}`);
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    
     const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      console.log(`[Auth] Login failed: Wrong password for user - ${normalizedUsername}`);
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    
+    if (!validPassword) return res.status(401).json({ error: 'Invalid credentials' });
     if (user.activeRoom && !rooms[user.activeRoom]) { user.activeRoom = null; saveUsers(users); }
-    console.log(`[Auth] Login successful: ${normalizedUsername}`);
-    res.json({ 
-      success: true, 
-      username: normalizedUsername, 
-      stats: { wins: user.wins, losses: user.losses }, 
-      activeRoom: user.activeRoom, 
-      email: user.email || null, 
-      emailVerified: user.emailVerified || false, 
-      avatar: user.avatar || null, 
-      language: user.language || 'en' 
-    });
-  } catch (error) { 
-    console.error('[Auth] Login error:', error); 
-    res.status(500).json({ error: 'Login failed' }); 
-  }
+    res.json({ success: true, username: normalizedUsername, stats: { wins: user.wins, losses: user.losses }, activeRoom: user.activeRoom, email: user.email || null, emailVerified: user.emailVerified || false, avatar: user.avatar || null, language: user.language || 'en' });
+  } catch (error) { console.error('[Auth] Error:', error); res.status(500).json({ error: 'Login failed' }); }
 });
 
 app.get('/api/user/:username', (req, res) => {
@@ -239,7 +216,7 @@ app.post('/api/forgot-password', async (req, res) => {
     const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
     await transporter.sendMail({ from: `"Chips Game" <${process.env.GMAIL_USER}>`, to: user.email, subject: 'Password Reset Code', html: `<div style="font-family:Arial;text-align:center"><h2>Chips Game</h2><p>Your code:</p><h1 style="color:#f5576c">${code}</h1><p>Expires in 10 minutes.</p></div>` });
     res.json({ success: true });
-  } catch (error) { res.status(500).json({ error: 'Failed to send email' }); }
+  } catch (error) { console.error('[Email] Error:', error); res.status(500).json({ error: 'Failed to send email' }); }
 });
 
 app.post('/api/reset-password', async (req, res) => {
@@ -254,7 +231,7 @@ app.post('/api/reset-password', async (req, res) => {
     saveUsers(users);
     delete passwordResetTokens[normalizedUsername];
     res.json({ success: true });
-  } catch (error) { res.status(500).json({ error: 'Failed to reset' }); }
+  } catch (error) { console.error('[Auth] Error:', error); res.status(500).json({ error: 'Failed to reset' }); }
 });
 
 function generateRoomCode() { return Math.random().toString(36).substring(2, 7).toUpperCase(); }
